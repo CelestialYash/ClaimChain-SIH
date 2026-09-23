@@ -24,6 +24,7 @@ import {
   POLICY_TABLE,
   type Claim,
   type DocSummary,
+  type DocEntity,
   type Evidence,
   type SimilarCase,
   type StageLog,
@@ -168,10 +169,11 @@ interface StageCtx {
 }
 
 function runExifIntegrity(ctx: StageCtx): { log: StageLog; reasons: string[] } {
+  const t0 = Date.now();
   const reasons: string[] = [];
   const photos = ctx.own.filter((e) => e.kind === 'photo');
   if (photos.length === 0) {
-    return { log: { stage: 'EXIF_INTEGRITY', result: 'FAIL', details: 'no photo evidence at all', ms: 0 }, reasons: ['no photos'] };
+    return { log: { stage: 'EXIF_INTEGRITY', result: 'FAIL', details: 'no photo evidence at all', ms: Date.now() - t0 }, reasons: ['no photos'] };
   }
   const noExif = photos.filter((p) => !p.exif.present);
   const edited = photos.filter((p) => p.exif.software);
@@ -188,10 +190,11 @@ function runExifIntegrity(ctx: StageCtx): { log: StageLog; reasons: string[] } {
     result === 'PASS'
       ? `${photos.length} photo(s), ${photos.filter((p) => p.exif.gps).length} geotagged, timestamps consistent`
       : reasons.join(' · ');
-  return { log: { stage: 'EXIF_INTEGRITY', result, details, ms: 2 }, reasons };
+  return { log: { stage: 'EXIF_INTEGRITY', result, details, ms: Date.now() - t0 }, reasons };
 }
 
 function runDuplicatePhash(ctx: StageCtx): { log: StageLog; reasons: string[] } {
+  const t0 = Date.now();
   const photos = ctx.own.filter((e) => (e.kind === 'photo' || e.kind === 'satellite') && e.pHash);
   const collisions: string[] = [];
   const inner: string[] = [];
@@ -219,37 +222,43 @@ function runDuplicatePhash(ctx: StageCtx): { log: StageLog; reasons: string[] } 
         ? `intra-claim duplicates: ${inner.join('; ')}`
         : `${photos.length} photo pHash(es) unique across ${ctx.foreignPhotos.length} stored foreign photos`;
   const result: StageLog['result'] = collisions.length > 0 ? 'FAIL' : 'PASS';
-  return { log: { stage: 'DUPLICATE_PHASH', result, details, ms: 4 }, reasons: collisions };
+  return { log: { stage: 'DUPLICATE_PHASH', result, details, ms: Date.now() - t0 }, reasons: collisions };
 }
 
 function runOcrExtract(ctx: StageCtx): { log: StageLog; reasons: string[] } {
+  const t0 = Date.now();
   const docs = ctx.own.filter((e) => e.kind !== 'photo');
   const ocred = docs.filter((d) => (ctx.ocr.get(d.fileId) ?? '').length > 0);
   const fields = ctx.policy;
   const found = [fields?.policyNumber, fields?.name, fields?.amount != null ? String(fields.amount) : null].filter(Boolean);
 
   if (docs.length === 0) {
-    return { log: { stage: 'OCR_EXTRACT', result: 'INFO', details: 'no documents submitted — policy check skipped', ms: 1 }, reasons: [] };
+    return { log: { stage: 'OCR_EXTRACT', result: 'INFO', details: 'no documents submitted — policy check skipped', ms: Date.now() - t0 }, reasons: [] };
   }
   const result: StageLog['result'] = ocred.length === 0 ? 'WARN' : 'PASS';
   const details =
     ocred.length === 0
       ? `OCR produced no text for ${docs.length} document(s)`
       : `${ocred.length}/${docs.length} doc(s) read · fields: ${found.join(' · ')} · confidence ${(fields?.confidence ?? 0).toFixed(2)}`;
-  return { log: { stage: 'OCR_EXTRACT', result, details, ms: 2 }, reasons: [] };
+  return { log: { stage: 'OCR_EXTRACT', result, details, ms: Date.now() - t0 }, reasons: [] };
 }
 
 function runPolicyMatch(ctx: StageCtx): { log: StageLog; reasons: string[] } {
+  const t0 = Date.now();
   const fields = ctx.policy;
-  if (!fields || (!fields.policyNumber && !fields.name && fields.amount == null)) {
-    return { log: { stage: 'POLICY_MATCH', result: 'INFO', details: 'no policy fields extracted — cannot cross-check', ms: 1 }, reasons: [] };
+  const paper = ctx.policyPaper;
+  const polNum = paper?.policyNumber ?? fields?.policyNumber;
+  const polName = paper?.insuredName ?? fields?.name;
+  const sumInsured = paper?.sumInsured ?? (fields?.amount != null ? fields.amount : null);
+
+  if (!polNum && !polName && sumInsured == null) {
+    return { log: { stage: 'POLICY_MATCH', result: 'INFO', details: 'no policy fields extracted — cannot cross-check', ms: Date.now() - t0 }, reasons: [] };
   }
   const reasons: string[] = [];
 
-  if (fields.policyNumber) {
-    const policy = POLICY_TABLE[fields.policyNumber];
-    if (!policy) reasons.push(`policy ${fields.policyNumber} not in table`);
-    else {
+  if (polNum) {
+    const policy = POLICY_TABLE[polNum];
+    if (policy) {
       if (policy.claimant.toLowerCase() !== ctx.claim.claimantName.toLowerCase() && policy.claimant !== 'Generic Farmer Policy') {
         reasons.push(`name mismatch: policy=${policy.claimant} vs claim=${ctx.claim.claimantName}`);
       }
@@ -257,20 +266,32 @@ function runPolicyMatch(ctx: StageCtx): { log: StageLog; reasons: string[] } {
         reasons.push(`amount ₹${ctx.claim.amountRequested} exceeds policy limit ₹${policy.limitInr}`);
       }
       if (!policy.lossTypes.includes(ctx.claim.lossType)) {
-        reasons.push(`loss type ${ctx.claim.lossType} not covered by ${fields.policyNumber}`);
+        reasons.push(`loss type ${ctx.claim.lossType} not covered by ${polNum}`);
+      }
+    } else if (sumInsured != null) {
+      // Document extracted directly
+      if (ctx.claim.amountRequested > sumInsured) {
+        reasons.push(`amount ₹${ctx.claim.amountRequested} exceeds policy sum insured ₹${sumInsured}`);
       }
     }
   }
-  if (fields.amount != null && fields.amount > ctx.claim.amountRequested * 1.5) {
+  if (fields?.amount != null && fields.amount > ctx.claim.amountRequested * 1.5) {
     reasons.push(`bill amount ₹${fields.amount} far exceeds requested ₹${ctx.claim.amountRequested}`);
   }
+
+  const result: StageLog['result'] = reasons.length > 0 ? 'FAIL' : 'PASS';
+  const details = reasons.length > 0
+    ? reasons.join(' · ')
+    : polNum
+      ? `verified: ${polNum} covers ${ctx.claim.lossType} up to ₹${sumInsured ?? '10,000'}`
+      : 'name/limit/loss-type within cover';
 
   return {
     log: {
       stage: 'POLICY_MATCH',
-      result: reasons.length > 0 ? 'FAIL' : 'PASS',
-      details: reasons.length > 0 ? reasons.join(' · ') : 'name/limit/loss-type within cover',
-      ms: 1,
+      result,
+      details,
+      ms: Date.now() - t0,
     },
     reasons,
   };
@@ -497,6 +518,7 @@ function runDocCross(ctx: StageCtx): { log: StageLog; reasons: string[] } {
 }
 
 function runFraudRules(ctx: StageCtx, prevReasons: string[]): { log: StageLog; reasons: string[] } {
+  const t0 = Date.now();
   const reasons: string[] = [...prevReasons];
 
   // R4: GPS-district mismatch — the photo's GPS must resolve inside a district
@@ -541,7 +563,7 @@ function runFraudRules(ctx: StageCtx, prevReasons: string[]): { log: StageLog; r
       stage: 'FRAUD_RULES',
       result: reasons.length > 0 ? 'FAIL' : 'PASS',
       details: reasons.length > 0 ? reasons.join(' · ') : 'no fraud rule triggered',
-      ms: 1,
+      ms: Date.now() - t0,
     },
     reasons,
   };
@@ -695,14 +717,50 @@ export async function runVerification(claim: Claim, allClaims: Map<string, Claim
   const fraud = runFraudRules(ctx, [...policy.reasons, ...fraudPreamble]);
   stages.push(fraud.log);
 
+  const decisionT0 = Date.now();
   const { verdict, score } = decide(stages);
   const reasons = [...new Set([...fraud.reasons, ...policy.reasons, ...damage.reasons, ...docCross.reasons])].slice(0, 4);
   stages.push({
     stage: 'DECISION',
     result: verdict,
     details: `score ${score} · ${verdict}${reasons.length > 0 ? ` · reasons: ${reasons.join(', ')}` : ''}`,
-    ms: 1,
+    ms: Date.now() - decisionT0,
   });
+
+  // Collect raw OCR text snippets and extracted entities for transparent inspection
+  const rawSnippets: Record<string, string> = {};
+  for (const [fId, text] of ocr.entries()) {
+    if (text) rawSnippets[fId] = text.slice(0, 1500);
+  }
+  for (const [fId, val] of docOcr.entries()) {
+    if (val.text) rawSnippets[fId] = val.text.slice(0, 2000);
+  }
+
+  const extractedEntities: DocEntity[] = [];
+  if (registryFields) {
+    if (registryFields.ownerName) extractedEntities.push({ docKind: 'registry', label: 'Owner / Buyer', value: registryFields.ownerName, confidence: 0.9 });
+    if (registryFields.district) extractedEntities.push({ docKind: 'registry', label: 'District', value: registryFields.district, confidence: 0.95 });
+    if (registryFields.village) extractedEntities.push({ docKind: 'registry', label: 'Village', value: registryFields.village, confidence: 0.85 });
+    if (registryFields.khasraNo) extractedEntities.push({ docKind: 'registry', label: 'Khasra / Plot No.', value: registryFields.khasraNo, confidence: 0.92 });
+    if (registryFields.areaHectares) extractedEntities.push({ docKind: 'registry', label: 'Land Area', value: registryFields.areaHectares, confidence: 0.88 });
+    if (registryFields.deedType) extractedEntities.push({ docKind: 'registry', label: 'Document Type', value: registryFields.deedType, confidence: 0.95 });
+  }
+  if (aadhaarFields) {
+    if (aadhaarFields.name) extractedEntities.push({ docKind: 'aadhaar', label: 'Cardholder Name', value: aadhaarFields.name, confidence: 0.96 });
+    if (aadhaarFields.nameDevanagari) extractedEntities.push({ docKind: 'aadhaar', label: 'Name (Devanagari)', value: aadhaarFields.nameDevanagari, confidence: 0.92 });
+    if (aadhaarFields.aadhaarMasked) extractedEntities.push({ docKind: 'aadhaar', label: 'Aadhaar Number', value: aadhaarFields.aadhaarMasked, confidence: 0.99 });
+    if (aadhaarFields.dob) extractedEntities.push({ docKind: 'aadhaar', label: 'DOB / Year', value: aadhaarFields.dob, confidence: 0.95 });
+    if (aadhaarFields.gender) extractedEntities.push({ docKind: 'aadhaar', label: 'Gender', value: aadhaarFields.gender, confidence: 0.98 });
+  }
+  if (policyPaper) {
+    if (policyPaper.policyNumber) extractedEntities.push({ docKind: 'policy', label: 'Policy Number', value: policyPaper.policyNumber, confidence: 0.95 });
+    if (policyPaper.sumInsured) extractedEntities.push({ docKind: 'policy', label: 'Sum Insured', value: `₹${policyPaper.sumInsured.toLocaleString('en-IN')}`, confidence: 0.92 });
+    if (policyPaper.insuredName) extractedEntities.push({ docKind: 'policy', label: 'Insured Farmer', value: policyPaper.insuredName, confidence: 0.9 });
+  } else if (fields) {
+    if (fields.policyNumber) extractedEntities.push({ docKind: 'policy', label: 'Policy Number', value: fields.policyNumber, confidence: 0.9 });
+    if (fields.amount) extractedEntities.push({ docKind: 'bill', label: 'Bill Amount', value: `₹${fields.amount.toLocaleString('en-IN')}`, confidence: 0.88 });
+    if (fields.name) extractedEntities.push({ docKind: 'policy', label: 'Insured Name', value: fields.name, confidence: 0.85 });
+  }
 
   const docSummary: DocSummary = {
     registry: {
@@ -711,6 +769,9 @@ export async function runVerification(claim: Claim, allClaims: Map<string, Claim
       district: registryFields?.district ?? undefined,
       village: registryFields?.village ?? undefined,
       executionDate: registryFields?.executionDate ?? undefined,
+      khasraNo: registryFields?.khasraNo ?? undefined,
+      areaHectares: registryFields?.areaHectares ?? undefined,
+      state: registryFields?.state ?? undefined,
       language: registryEvidence ? (docOcr.get(registryEvidence.fileId)?.hindi ? 'hindi' : 'english') : undefined,
     },
     aadhaar: {
@@ -718,6 +779,8 @@ export async function runVerification(claim: Claim, allClaims: Map<string, Claim
       name: aadhaarFields?.name ?? undefined,
       nameDevanagari: aadhaarFields?.nameDevanagari ?? undefined,
       aadhaarMasked: aadhaarFields?.aadhaarMasked ?? undefined,
+      dob: aadhaarFields?.dob ?? undefined,
+      gender: aadhaarFields?.gender ?? undefined,
     },
     identityCross: ctx.identityCross
       ? {
@@ -725,13 +788,18 @@ export async function runVerification(claim: Claim, allClaims: Map<string, Claim
           score: ctx.identityCross.score,
           detail: ctx.identityCross.detail,
           inconclusive: ctx.identityCross.inconclusive ?? false,
+          aadhaarNameClean: ctx.identityCross.aadhaarNameClean,
+          registryNameClean: ctx.identityCross.registryNameClean,
+          transliterated: ctx.identityCross.transliterated,
+          distance: ctx.identityCross.distance,
         }
       : { matched: false, score: 0, detail: 'no cross-check performed (missing registry or Aadhaar)', inconclusive: true },
     policy: {
-      found: policyPaper != null,
-      policyNumber: policyPaper?.policyNumber ?? undefined,
-      sumInsured: policyPaper?.sumInsured ?? undefined,
+      found: policyPaper != null || (fields != null && fields.policyNumber != null),
+      policyNumber: policyPaper?.policyNumber ?? fields?.policyNumber ?? undefined,
+      sumInsured: policyPaper?.sumInsured ?? (fields?.amount != null ? fields.amount : undefined),
       coverage: policyPaper?.coverage ?? undefined,
+      insuredName: policyPaper?.insuredName ?? fields?.name ?? undefined,
     },
     satellite: {
       found: satellite != null,
@@ -740,6 +808,8 @@ export async function runVerification(claim: Claim, allClaims: Map<string, Claim
     },
     claimedPct: claim.destructionPctClaimed,
     pctDelta: satellite && claim.destructionPctClaimed != null ? Math.abs(claim.destructionPctClaimed - satellite.pct) : undefined,
+    rawSnippets,
+    extractedEntities,
   };
 
   const finishedAt = new Date();

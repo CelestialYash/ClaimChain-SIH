@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
@@ -10,11 +10,13 @@ import {
   CircleCheck,
   CircleDashed,
   Download,
+  Eye,
   FileText,
   Image as ImageIcon,
   Info,
   ShieldAlert,
   ShieldCheck,
+  X,
   Zap,
 } from 'lucide-react';
 import { LogoIcon } from '../components/LogoIcon';
@@ -25,6 +27,8 @@ import {
   STATUS_META,
   type Claim,
   type ClaimStatus,
+  type DocEntity,
+  type DocSummary,
   type LossType,
   type StageLog,
 } from '../lib/api';
@@ -352,10 +356,255 @@ function IntakeForm({ onCreated }: { onCreated: (id: string) => void }) {
 }
 
 // ---------------------------------------------------------------------------
+// Document Forensic Inspector Modal — shows raw OCR text, extracted entities,
+// and identity match scoring to make the AI's document analysis transparent.
+// ---------------------------------------------------------------------------
+
+function DocInspectorModal({
+  open,
+  onClose,
+  docSummary,
+  evidence,
+}: {
+  open: boolean;
+  onClose: () => void;
+  docSummary?: DocSummary;
+  evidence: Claim['evidence'];
+}) {
+  const [tab, setTab] = useState<'entities' | 'ocr' | 'identity'>('entities');
+
+  if (!open || !docSummary) return null;
+
+  const entities = docSummary.extractedEntities ?? [];
+  const snippets = docSummary.rawSnippets ?? {};
+  const snippetEntries = Object.entries(snippets);
+
+  // Group entities by docKind
+  const grouped = entities.reduce<Record<string, DocEntity[]>>((acc, e) => {
+    const key = e.docKind;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(e);
+    return acc;
+  }, {});
+
+  const docKindLabel: Record<string, string> = {
+    registry: '📜 Land Registry',
+    aadhaar: '🪪 Aadhaar Card',
+    policy: '📋 Insurance Policy',
+    bill: '🧾 Bill / Invoice',
+  };
+
+  // Find the fileId for each snippet and its corresponding evidence filename
+  const fileNameMap = new Map<string, string>();
+  for (const ev of evidence) {
+    fileNameMap.set(ev.fileId, ev.filename);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="relative mx-4 max-h-[85vh] w-full max-w-3xl overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-black/10 px-6 py-4">
+          <div>
+            <h3 className="text-base font-semibold tracking-tight text-black">Document Forensic Inspector</h3>
+            <p className="mt-0.5 text-xs text-black/50">दस्तावेज़ फ़ोरेंसिक निरीक्षक — see exactly what the AI read</p>
+          </div>
+          <button onClick={onClose} className="rounded-full p-1.5 text-black/40 transition-colors hover:bg-black/5 hover:text-black">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex border-b border-black/10">
+          {([
+            { id: 'entities' as const, label: 'Extracted Entities', count: entities.length },
+            { id: 'ocr' as const, label: 'Raw OCR Text', count: snippetEntries.length },
+            { id: 'identity' as const, label: 'Identity Match', count: null },
+          ]).map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`flex items-center gap-2 border-b-2 px-5 py-2.5 text-xs font-medium transition-colors ${
+                tab === t.id
+                  ? 'border-black text-black'
+                  : 'border-transparent text-black/40 hover:text-black/70'
+              }`}
+            >
+              {t.label}
+              {t.count != null && (
+                <span className="rounded-full bg-black/5 px-1.5 py-0.5 font-mono text-[10px]">{t.count}</span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        <div className="max-h-[60vh] overflow-y-auto p-6">
+          {tab === 'entities' && (
+            <div className="space-y-5">
+              {entities.length === 0 ? (
+                <p className="py-8 text-center text-sm text-black/40">No entities extracted — upload Aadhaar, registry, or policy documents to see results here.</p>
+              ) : (
+                Object.entries(grouped).map(([kind, items]) => (
+                  <div key={kind}>
+                    <h4 className="mb-2 text-xs font-semibold uppercase tracking-widest text-black/50">{docKindLabel[kind] ?? kind}</h4>
+                    <div className="overflow-hidden rounded-xl border border-black/10">
+                      <table className="w-full text-left text-sm">
+                        <thead className="bg-[#F5F5F5]">
+                          <tr>
+                            <th className="px-4 py-2 text-[10px] font-semibold uppercase tracking-widest text-black/50">Field</th>
+                            <th className="px-4 py-2 text-[10px] font-semibold uppercase tracking-widest text-black/50">Value</th>
+                            <th className="px-4 py-2 text-right text-[10px] font-semibold uppercase tracking-widest text-black/50">Confidence</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {items.map((e, i) => (
+                            <tr key={i} className="border-t border-black/5">
+                              <td className="px-4 py-2 text-xs font-medium text-black/70">{e.label}</td>
+                              <td className="px-4 py-2 font-mono text-xs text-black">{e.value}</td>
+                              <td className="px-4 py-2 text-right">
+                                <span className={`inline-block rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold ${
+                                  e.confidence >= 0.9 ? 'bg-[#10b981]/10 text-[#0b7a5c]' : e.confidence >= 0.7 ? 'bg-[#f59e0b]/10 text-[#b45309]' : 'bg-[#ef4444]/10 text-[#b91c1c]'
+                                }`}>
+                                  {Math.round(e.confidence * 100)}%
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {tab === 'ocr' && (
+            <div className="space-y-4">
+              {snippetEntries.length === 0 ? (
+                <p className="py-8 text-center text-sm text-black/40">No OCR text available — documents may not have been submitted or were unreadable.</p>
+              ) : (
+                snippetEntries.map(([fileId, text]) => (
+                  <div key={fileId} className="overflow-hidden rounded-xl border border-black/10">
+                    <div className="flex items-center justify-between bg-[#F5F5F5] px-4 py-2">
+                      <span className="font-mono text-[10px] font-semibold uppercase tracking-widest text-black/50">
+                        {fileNameMap.get(fileId) ?? fileId}
+                      </span>
+                      <span className="font-mono text-[10px] text-black/40">{text.length} chars</span>
+                    </div>
+                    <pre className="max-h-48 overflow-auto whitespace-pre-wrap px-4 py-3 font-mono text-xs leading-relaxed text-black/70">
+                      {text}
+                    </pre>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {tab === 'identity' && (
+            <div className="space-y-4">
+              {/* Identity cross-check card */}
+              <div className={`rounded-xl border-2 p-5 ${
+                docSummary.identityCross.matched
+                  ? 'border-[#10b981]/40 bg-[#10b981]/[0.03]'
+                  : docSummary.identityCross.inconclusive
+                    ? 'border-black/15 bg-black/[0.02]'
+                    : 'border-[#f59e0b]/40 bg-[#f59e0b]/[0.03]'
+              }`}>
+                <div className="mb-3 flex items-center gap-2">
+                  {docSummary.identityCross.matched ? (
+                    <BadgeCheck className="h-5 w-5 text-[#10b981]" />
+                  ) : docSummary.identityCross.inconclusive ? (
+                    <Info className="h-5 w-5 text-black/40" />
+                  ) : (
+                    <CircleAlert className="h-5 w-5 text-[#f59e0b]" />
+                  )}
+                  <span className="text-sm font-semibold text-black">
+                    {docSummary.identityCross.matched ? 'Identity Verified' : docSummary.identityCross.inconclusive ? 'Inconclusive' : 'Identity Mismatch'}
+                  </span>
+                  <span className={`ml-auto rounded-full px-3 py-1 font-mono text-xs font-bold ${
+                    docSummary.identityCross.matched ? 'bg-[#10b981]/20 text-[#0b7a5c]' : 'bg-black/10 text-black/60'
+                  }`}>
+                    {docSummary.identityCross.score}%
+                  </span>
+                </div>
+                <p className="text-xs leading-relaxed text-black/60">{docSummary.identityCross.detail}</p>
+              </div>
+
+              {/* Step-by-step matching breakdown */}
+              <div className="rounded-xl border border-black/10 p-5">
+                <h4 className="mb-3 text-xs font-semibold uppercase tracking-widest text-black/50">Match Breakdown</h4>
+                <div className="space-y-3">
+                  {docSummary.aadhaar.found && (docSummary.aadhaar.name || docSummary.aadhaar.nameDevanagari) && (
+                    <div className="flex items-start gap-3">
+                      <span className="mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-lg bg-[#06b6d4]/10 text-[10px] font-bold text-[#0e7490]">1</span>
+                      <div>
+                        <p className="text-xs font-medium text-black/70">Aadhaar Name</p>
+                        <p className="font-mono text-sm text-black">{docSummary.aadhaar.name ?? docSummary.aadhaar.nameDevanagari}</p>
+                        {docSummary.aadhaar.nameDevanagari && docSummary.aadhaar.name && (
+                          <p className="mt-0.5 font-mono text-xs text-black/40">Devanagari: {docSummary.aadhaar.nameDevanagari}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {docSummary.identityCross.transliterated && (
+                    <div className="flex items-start gap-3">
+                      <span className="mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-lg bg-[#06b6d4]/10 text-[10px] font-bold text-[#0e7490]">2</span>
+                      <div>
+                        <p className="text-xs font-medium text-black/70">Transliteration</p>
+                        <p className="font-mono text-sm text-black">{docSummary.identityCross.transliterated}</p>
+                        <p className="mt-0.5 text-[10px] text-black/40">Devanagari → Latin (ICU rules + phonetic mapping)</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {docSummary.identityCross.registryNameClean && (
+                    <div className="flex items-start gap-3">
+                      <span className="mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-lg bg-[#06b6d4]/10 text-[10px] font-bold text-[#0e7490]">3</span>
+                      <div>
+                        <p className="text-xs font-medium text-black/70">Registry Owner</p>
+                        <p className="font-mono text-sm text-black">{docSummary.identityCross.registryNameClean}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-start gap-3">
+                    <span className="mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-lg bg-[#06b6d4]/10 text-[10px] font-bold text-[#0e7490]">4</span>
+                    <div>
+                      <p className="text-xs font-medium text-black/70">Similarity Score</p>
+                      <div className="mt-1 h-2 w-48 overflow-hidden rounded-full bg-black/10">
+                        <div
+                          className={`h-full rounded-full transition-all ${
+                            docSummary.identityCross.score >= 50 ? 'bg-[#10b981]' : 'bg-[#f59e0b]'
+                          }`}
+                          style={{ width: `${docSummary.identityCross.score}%` }}
+                        />
+                      </div>
+                      <p className="mt-1 text-[10px] text-black/40">
+                        {docSummary.identityCross.score >= 50 ? 'Pass threshold: 50%' : 'Below 50% threshold — manual review required'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Verification stepper — the live 7-stage pipeline
 // ---------------------------------------------------------------------------
 
-function PipelineStepper({ claimId }: { claimId: string }) {
+function PipelineStepper({ claimId, onInspect }: { claimId: string; onInspect?: () => void }) {
   const [lang, setLang] = useState<'en' | 'hi'>('en');
   const ver = useQuery({
     queryKey: ['verification', claimId, lang],
@@ -414,41 +663,68 @@ function PipelineStepper({ claimId }: { claimId: string }) {
 
             {run.docSummary && (run.docSummary.registry.found || run.docSummary.aadhaar.found || run.docSummary.policy.found || run.docSummary.satellite.found) && (
               <div className="rounded-xl border border-black/10 p-4">
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-black/50">Document intelligence · दस्तावेज़ जाँच</p>
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-black/50">Document intelligence · दस्तावेज़ जाँच</p>
+                  {onInspect && (
+                    <button
+                      onClick={onInspect}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-black/10 px-3 py-1 text-[10px] font-semibold text-black/60 transition-colors hover:border-black/40 hover:text-black"
+                    >
+                      <Eye className="h-3 w-3" />
+                      Inspect
+                    </button>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 gap-2">
-                  {(
-                    [
-                      run.docSummary.registry.found && {
-                        ok: true,
-                        title: 'Registry',
-                        body: `${run.docSummary.registry.deedType ?? 'land record'}${run.docSummary.registry.district ? ` · ${run.docSummary.registry.district}` : ''} · ${run.docSummary.registry.language ?? 'read'}`,
-                      },
-                      run.docSummary.aadhaar.found && {
-                        ok: true,
-                        title: 'Aadhaar',
-                        body: `${run.docSummary.aadhaar.name ?? run.docSummary.aadhaar.nameDevanagari ?? 'name read'}${run.docSummary.aadhaar.aadhaarMasked ? ` · ${run.docSummary.aadhaar.aadhaarMasked}` : ''}`,
-                      },
-                      {
-                        ok: run.docSummary.identityCross.matched,
-                        warn: !run.docSummary.identityCross.matched && run.docSummary.identityCross.inconclusive,
-                        title: run.docSummary.identityCross.inconclusive && !run.docSummary.identityCross.matched
-                          ? 'Identity · inconclusive'
-                          : `Identity match ${run.docSummary.identityCross.score}%`,
-                        body: run.docSummary.identityCross.detail,
-                      },
-                      run.docSummary.policy.found && {
-                        ok: true,
-                        title: 'Policy',
-                        body: `${run.docSummary.policy.policyNumber ?? 'paper read'}${run.docSummary.policy.sumInsured ? ` · sum ₹${run.docSummary.policy.sumInsured.toLocaleString('en-IN')}` : ''}`,
-                      },
-                      run.docSummary.satellite.found && {
-                        ok: true,
-                        title: `Satellite · ${run.docSummary.satellite.destructionPct ?? '?'}% destroyed`,
-                        body: `visual ladder rung: ${run.docSummary.satellite.rung ?? '?'}${run.docSummary.pctDelta != null ? ` · claimed ${run.docSummary.claimedPct}% (Δ ${run.docSummary.pctDelta})` : ''}`,
-                      },
-                    ].filter(Boolean) as Array<{ ok: boolean; warn?: boolean; title: string; body: string }>
+                  {([
+                    run.docSummary.registry.found && {
+                      ok: true,
+                      title: run.docSummary.registry.deedType ? `📜 ${run.docSummary.registry.deedType}` : '📜 Registry',
+                      body: [
+                        run.docSummary.registry.district,
+                        run.docSummary.registry.khasraNo && `Khasra #${run.docSummary.registry.khasraNo}`,
+                        run.docSummary.registry.areaHectares && `${run.docSummary.registry.areaHectares}`,
+                        run.docSummary.registry.state,
+                        run.docSummary.registry.language && `(${run.docSummary.registry.language})`,
+                      ].filter(Boolean).join(' · ') || 'read',
+                    },
+                    run.docSummary.aadhaar.found && {
+                      ok: true,
+                      title: '🪪 Aadhaar',
+                      body: [
+                        run.docSummary.aadhaar.name ?? run.docSummary.aadhaar.nameDevanagari ?? 'name read',
+                        run.docSummary.aadhaar.aadhaarMasked,
+                        run.docSummary.aadhaar.dob && `DOB: ${run.docSummary.aadhaar.dob}`,
+                      ].filter(Boolean).join(' · '),
+                    },
+                    {
+                      ok: run.docSummary.identityCross.matched,
+                      warn: !run.docSummary.identityCross.matched && run.docSummary.identityCross.inconclusive,
+                      title: run.docSummary.identityCross.inconclusive && !run.docSummary.identityCross.matched
+                        ? '🔍 Identity · inconclusive'
+                        : `🔍 Identity ${run.docSummary.identityCross.score}%`,
+                      body: run.docSummary.identityCross.aadhaarNameClean && run.docSummary.identityCross.registryNameClean
+                        ? `"${run.docSummary.identityCross.aadhaarNameClean}" ↔ "${run.docSummary.identityCross.registryNameClean}"`
+                        : run.docSummary.identityCross.detail,
+                    },
+                    run.docSummary.policy.found && {
+                      ok: true,
+                      title: '📋 Policy',
+                      body: [
+                        run.docSummary.policy.policyNumber,
+                        run.docSummary.policy.sumInsured && `₹${run.docSummary.policy.sumInsured.toLocaleString('en-IN')}`,
+                        run.docSummary.policy.insuredName,
+                        run.docSummary.policy.coverage && run.docSummary.policy.coverage.length > 0 && `covers: ${run.docSummary.policy.coverage.join(', ')}`,
+                      ].filter(Boolean).join(' · ') || 'paper read',
+                    },
+                    run.docSummary.satellite.found && {
+                      ok: true,
+                      title: `🛰️ Satellite · ${run.docSummary.satellite.destructionPct ?? '?'}%`,
+                      body: `rung: ${run.docSummary.satellite.rung ?? '?'}${run.docSummary.pctDelta != null ? ` · claimed ${run.docSummary.claimedPct}% (Δ ${run.docSummary.pctDelta})` : ''}`,
+                    },
+                  ].filter(Boolean) as Array<{ ok: boolean; warn?: boolean; title: string; body: string }>
                   ).map((c) => (
-                    <div key={c.title} className={`rounded-lg border px-3 py-2 ${c.ok ? 'border-[#10b981]/30 bg-[#10b981]/[0.05]' : c.warn ? 'border-black/15 bg-black/[0.04]' : 'border-[#f59e0b]/40 bg-[#f59e0b]/[0.06]'}`}>
+                    <div key={c.title} className={`cursor-pointer rounded-lg border px-3 py-2 transition-colors ${c.ok ? 'border-[#10b981]/30 bg-[#10b981]/[0.05] hover:bg-[#10b981]/[0.1]' : c.warn ? 'border-black/15 bg-black/[0.04] hover:bg-black/[0.06]' : 'border-[#f59e0b]/40 bg-[#f59e0b]/[0.06] hover:bg-[#f59e0b]/[0.1]'}`} onClick={onInspect}>
                       <p className={`text-[11px] font-semibold ${c.ok ? 'text-[#0b7a5c]' : c.warn ? 'text-black/60' : 'text-[#b45309]'}`}>{c.title}</p>
                       <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-black/60" title={c.body}>{c.body}</p>
                     </div>
@@ -740,17 +1016,35 @@ function TrailPanel({ claimId }: { claimId: string }) {
 
 export default function Console() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [showLiveOnly, setShowLiveOnly] = useState(false);
 
   const health = useQuery({ queryKey: ['health'], queryFn: api.health, refetchInterval: 5000, retry: 1 });
-  const claims = useQuery({ queryKey: ['claims'], queryFn: api.listClaims, refetchInterval: 4000, retry: 1 });
+  const claimsQuery = useQuery({ queryKey: ['claims'], queryFn: api.listClaims, refetchInterval: 4000, retry: 1 });
   const stats = useQuery({ queryKey: ['stats'], queryFn: api.stats, refetchInterval: 5000, retry: 1 });
   const memory = useQuery({ queryKey: ['memory'], queryFn: api.fraudMemory, refetchInterval: 10000, retry: 1 });
 
-  useEffect(() => {
-    if (!selectedId && claims.data && claims.data.length > 0) setSelectedId(claims.data[claims.data.length - 1].id);
-  }, [claims.data, selectedId]);
+  // Known seeded claim IDs — these are pre-generated demo data
+  const SEEDED_IDS = useMemo(() => new Set(['CLM-8919', 'CLM-8920']), []);
+  const isSeeded = useCallback((id: string) => SEEDED_IDS.has(id), [SEEDED_IDS]);
 
-  const selected = useMemo(() => claims.data?.find((c) => c.id === selectedId), [claims.data, selectedId]);
+  const filteredClaims = useMemo(() => {
+    if (!claimsQuery.data) return [];
+    if (!showLiveOnly) return claimsQuery.data;
+    return claimsQuery.data.filter((c) => !isSeeded(c.id));
+  }, [claimsQuery.data, showLiveOnly, isSeeded]);
+
+  useEffect(() => {
+    if (!selectedId && claimsQuery.data && claimsQuery.data.length > 0) setSelectedId(claimsQuery.data[claimsQuery.data.length - 1].id);
+  }, [claimsQuery.data, selectedId]);
+
+  const selected = useMemo(() => claimsQuery.data?.find((c) => c.id === selectedId), [claimsQuery.data, selectedId]);
+  const selectedVer = useQuery({
+    queryKey: ['verification', selectedId, 'en'],
+    queryFn: () => (selectedId ? api.verification(selectedId, 'en') : null),
+    enabled: !!selectedId,
+    refetchInterval: (q) => (q.state.data?.status === 'COMPLETE' ? false : 3000),
+  });
   const chainOk = health.data?.chain.enabled;
 
   const kpis = [
@@ -813,9 +1107,27 @@ export default function Console() {
           <div className="flex flex-col gap-4 lg:col-span-4">
             <IntakeForm onCreated={setSelectedId} />
             <Card className="overflow-hidden">
-              <SectionTitle right={<span className="font-mono text-[10px] text-black/40">{claims.data?.length ?? 0}</span>}>Claims queue</SectionTitle>
+              <SectionTitle
+                right={
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowLiveOnly(!showLiveOnly)}
+                      className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+                        showLiveOnly
+                          ? 'bg-black text-white'
+                          : 'border border-black/10 text-black/60 hover:border-black/30'
+                      }`}
+                    >
+                      {showLiveOnly ? 'Live Only' : 'All'}
+                    </button>
+                    <span className="font-mono text-[10px] text-black/40">{filteredClaims.length}</span>
+                  </div>
+                }
+              >
+                Claims queue
+              </SectionTitle>
               <div className="max-h-96 overflow-y-auto">
-                {(claims.data ?? []).map((c) => (
+                {filteredClaims.map((c) => (
                   <button
                     key={c.id}
                     onClick={() => setSelectedId(c.id)}
@@ -824,7 +1136,14 @@ export default function Console() {
                     }`}
                   >
                     <div className="min-w-0">
-                      <p className="font-mono text-xs text-black">{c.id}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-mono text-xs text-black">{c.id}</p>
+                        {isSeeded(c.id) ? (
+                          <span className="rounded bg-black/[0.06] px-1 py-0.2 text-[9px] font-mono text-black/40">seeded</span>
+                        ) : (
+                          <span className="rounded bg-emerald-500/10 px-1 py-0.2 text-[9px] font-mono font-semibold text-emerald-700">live</span>
+                        )}
+                      </div>
                       <p className="truncate text-[11px] text-black/50">
                         {c.claimantName} · {c.lossType}
                       </p>
@@ -850,6 +1169,11 @@ export default function Console() {
                     <div>
                       <h2 className="flex items-center gap-2 font-mono text-base font-semibold text-black">
                         {selected.id} <Chip tone={STATUS_META[selected.status].tone}>{STATUS_META[selected.status].label}</Chip>
+                        {isSeeded(selected.id) ? (
+                          <span className="rounded bg-black/[0.06] px-1.5 py-0.5 text-[10px] font-mono text-black/50">historical seeded</span>
+                        ) : (
+                          <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-mono font-semibold text-emerald-700">live submission</span>
+                        )}
                       </h2>
                       <p className="mt-0.5 text-xs text-black/50">
                         {selected.claimantName} · {selected.lossType} · {selected.evidence.filter((e) => e.kind === 'photo').length} photo(s)
@@ -862,10 +1186,16 @@ export default function Console() {
                   </div>
                 </Card>
 
-                <PipelineStepper claimId={selected.id} />
+                <PipelineStepper claimId={selected.id} onInspect={() => setInspectorOpen(true)} />
                 <ReviewAndPay claim={selected} />
                 <EvidenceGrid claim={selected} />
                 <TrailPanel claimId={selected.id} />
+                <DocInspectorModal
+                  open={inspectorOpen}
+                  onClose={() => setInspectorOpen(false)}
+                  docSummary={selectedVer.data?.verification?.docSummary}
+                  evidence={selected.evidence}
+                />
               </>
             )}
           </div>

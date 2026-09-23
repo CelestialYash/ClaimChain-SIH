@@ -15,12 +15,17 @@ PIDS=()
 # Windows (Git Bash): clear leaked node children squatting on our ports
 # (`kill` on npx wrappers does not reap children there).
 kill_port() {
-  local port="$1" pids pid
-  pids=$(netstat -ano 2>/dev/null | grep ":$port" | grep -i LISTENING | awk '{print $NF}' | sort -u || true)
-  for pid in $pids; do
-    case "$pid" in *[!0-9]*) continue ;; esac
-    taskkill //F //PID "$pid" >/dev/null 2>&1 || true
-  done
+  local port="$1"
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -ti ":$port" 2>/dev/null | xargs kill -9 2>/dev/null || true
+  else
+    local pids pid
+    pids=$(netstat -ano 2>/dev/null | grep ":$port" | grep -i LISTENING | awk '{print $NF}' | sort -u || true)
+    for pid in $pids; do
+      case "$pid" in *[!0-9]*) continue ;; esac
+      taskkill //F //PID "$pid" >/dev/null 2>&1 || true
+    done
+  fi
 }
 
 cleanup() {
@@ -37,7 +42,7 @@ kill_port 4000
 kill_port 5173
 
 wait_for() { # url label
-  for _ in $(seq 1 45); do
+  for _ in $(seq 1 90); do
     if curl -s -m 2 -o /dev/null "$1"; then return 0; fi
     sleep 1
   done

@@ -944,8 +944,16 @@ async function main() {
   // the gaps (claims missing from the snapshot), so restarts are seamless.
   loadPersistedClaims(chain.enabled ? chain.address : null);
 
+  app.listen(PORT, () => {
+    console.log(`ClaimChain API listening on http://localhost:${PORT} (chain ${chain.enabled ? 'enabled' : 'disabled'})`);
+  });
+
   if (process.env.SEED_DEMO !== '0') {
-    await seedClaims(chain);
+    try {
+      await seedClaims(chain);
+    } catch (e) {
+      console.warn('[seed] demo seeding error:', (e as Error).message);
+    }
   }
 
   // Train the fraud memory from already-decided claims (lazy-loads CLIP).
@@ -953,10 +961,6 @@ async function main() {
   void trainFromExistingClaims().catch((e) =>
     console.warn('[train] boot training failed:', (e as Error).message)
   );
-
-  app.listen(PORT, () => {
-    console.log(`ClaimChain API listening on http://localhost:${PORT} (chain ${chain.enabled ? 'enabled' : 'disabled'})`);
-  });
 }
 
 void main();

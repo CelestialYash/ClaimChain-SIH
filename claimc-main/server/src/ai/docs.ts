@@ -154,45 +154,83 @@ export interface RegistryFields {
   deedType: string | null; // "विक्रय विलेख" / "sale deed" / "खतौनी"
   executionDate: string | null;
   areaValue: number | null; // consideration amount if this is a sale deed
+  khasraNo: string | null; // Khasra / Survey / Gata number
+  areaHectares: string | null; // Land area in hectares/acres/bigha
+  state: string | null;
   confidence: number;
 }
+
+const COMMON_DISTRICTS = [
+  'muradabad', 'moradabad', 'ballia', 'yavatmal', 'nanded', 'thane', 'amravati',
+  'akola', 'solapur', 'latur', 'bhiwandi', 'pune', 'nashik', 'nagpur', 'aurangabad',
+  'kolhapur', 'satara', 'jalgaon', 'ahmednagar', 'parbhani', 'beed', 'osmanabad',
+  'washim', 'hingoli', 'wardha', 'bhandara', 'gondia', 'chandrapur', 'gadchiroli',
+  'mumbai', 'lucknow', 'kanpur', 'varanasi', 'prayagraj', 'gorakhpur', 'bhopal',
+  'indore', 'patna', 'jaipur', 'muzaffarnagar', 'meerut', 'aligarh', 'agra',
+];
 
 export function parseRegistry(text: string): RegistryFields {
   const t = devanagariToAscii(text);
   const flat = t.replace(/\s+/g, ' ');
 
   // Owner: the name after a relation marker is the buyer/owner in sale deeds
-  // ("है उर्फ X पुत्र Y"); in khatauni it follows नाम/स्वामी.
+  // ("है उर्फ X पुत्र Y"); in khatauni it follows नाम/स्वामी/क्रेता.
   let owner: string | null = null;
   let relation: string | null = null;
 
-  const afterRelation = flat.match(/(?:पुत्र|पुत्री|पत्नी|s\/o|d\/o|w\/o|son of|daughter of|wife of)\s*[:\-]?\s*([\u0900-\u097F][\u0900-\u097F\s]{2,40}|[A-Z][A-Za-z\s]{2,40})/i);
-  if (afterRelation) {
-    relation = 'relative';
-    owner = afterRelation[1].trim();
+  // Pattern 1: Sale deed buyer/first party (क्रेता / हकदार / खरीदार)
+  const buyerMatch = flat.match(/(?:क्रेता|खरीदार|प्रथम\s*पक्ष|हकदार)\s*[:\-]?\s*([A-Za-z\u0900-\u097F][A-Za-z\u0900-\u097F\s]{2,35}?)(?=\s+(?:पुत्र|पुत्री|पत्नी|निवासी|उम्र|जाति|पार्टी)|$)/i);
+  if (buyerMatch) {
+    owner = buyerMatch[1].trim();
   }
+
+  // Pattern 2: After relation marker
+  if (!owner) {
+    const afterRelation = flat.match(/(?:पुत्र|पुत्री|पत्नी|s\/o|d\/o|w\/o|son of|daughter of|wife of)\s*[:\-]?\s*([\u0900-\u097F][\u0900-\u097F\s]{2,40}|[A-Z][A-Za-z\s]{2,40})/i);
+    if (afterRelation) {
+      relation = 'relative';
+      owner = afterRelation[1].trim();
+    }
+  }
+
+  // Pattern 3: Labeled owner/name
   if (!owner) {
     const labeled = flat.match(/(?:नाम|स्वामी|खातेदार|owner|name)\s*[:\-]?\s*([\u0900-\u097F][\u0900-\u097F\s]{2,40}|[A-Z][A-Za-z\s]{2,40})/);
     if (labeled) owner = labeled[1].trim();
   }
+
   // Drop OCR junk tokens ("wo", "go0", single letters picked from stamp noise)
   if (owner && /^(?:wo|go0|af|urpha|shri|sri|mr|the|and|[a-z]{1,2})$/i.test(owner.replace(/\s+/g, ''))) owner = null;
 
-  const district =
-    flat.match(/\b(?:जिला|district)\s*[:\-]?\s*([\u0900-\u097F]{3,20}|[A-Za-z]{3,20})/i)?.[1]?.trim() ??
-    flat.match(/\b(muradabad|moradabad|ballia|yavatmal|nanded|thane|amravati|akola|solapur|latur|bhiwandi)\b/i)?.[1] ??
-    null;
+  // Universal District extraction: looks for "जिला/district <Name>" first, then checks dictionary
+  const districtLabeled = flat.match(/\b(?:जिला|district|dist\.?)\s*[:\-]?\s*([A-Za-z\u0900-\u097F]{3,25})/i);
+  let district: string | null = districtLabeled?.[1]?.trim() ?? null;
+  if (!district) {
+    const distRe = new RegExp(`\\b(${COMMON_DISTRICTS.join('|')})\\b`, 'i');
+    district = flat.match(distRe)?.[1] ?? null;
+  }
 
   const village =
     flat.match(/\b(?:ग्राम|गांव|मौजा|village)\s*[:\-]?\s*([\u0900-\u097F]{2,25}|[A-Za-z]{2,25})/i)?.[1]?.trim() ?? null;
 
   const deedType =
-    flat.match(/(विक्रय विलेख|खतौनी|खसरा|फर्द|sale deed|registry|khatauni|khasra)/i)?.[1] ?? null;
+    flat.match(/(विक्रय विलेख|खतौनी|खसरा|फर्द|sale deed|registry|khatauni|khasra|इकरारनामा)/i)?.[1] ?? null;
 
   const execDate =
     flat.match(/\b(\d{1,2}\s+[A-Z][a-z]{2,8}\s+\d{4})\b/)?.[1] ??
     flat.match(/\b(\d{2}[\/-]\d{2}[\/-]\d{4})\b/)?.[1] ??
     null;
+
+  // Khasra / Survey / Gata number
+  const khasraNo =
+    flat.match(/(?:खसरा\s*(?:नं0?|संख्या)?|khasra\s*(?:no\.?|num)?|survey\s*(?:no\.?|num)?|गाटा\s*(?:संख्या)?)\s*[:\-#]?\s*([0-9]+(?:\/[0-9]+)?)/i)?.[1]?.trim() ?? null;
+
+  // Area / Rakba
+  const areaHectares =
+    flat.match(/(?:रकबा|क्षेत्रफल|area)\s*[:\-]?\s*([0-9.]+\s*(?:हेक्टेयर|हे0|बीघा|एकड़|hectare|acre)?)/i)?.[1]?.trim() ?? null;
+
+  const state =
+    flat.match(/\b(उत्तर प्रदेश|महाराष्ट्र|मध्य प्रदेश|राजस्थान|बिहार|हरियाणा|गुजरात|uttar pradesh|maharashtra|madhya pradesh|bihar)\b/i)?.[1] ?? null;
 
   // Consideration / stamp value: first large ₹ figure (devanagari रू also appears)
   const amt =
@@ -206,8 +244,21 @@ export function parseRegistry(text: string): RegistryFields {
   if (district) hits++;
   if (deedType) hits++;
   if (execDate) hits++;
+  if (khasraNo) hits++;
 
-  return { ownerName: owner, ownerRelation: relation, district, village, deedType, executionDate: execDate, areaValue, confidence: hits / 4 };
+  return {
+    ownerName: owner,
+    ownerRelation: relation,
+    district,
+    village,
+    deedType,
+    executionDate: execDate,
+    areaValue,
+    khasraNo,
+    areaHectares,
+    state,
+    confidence: Number((hits / 5).toFixed(2)),
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -276,14 +327,12 @@ export interface CrossVerifyResult {
   score: number;
   aadhaarName: string | null;
   registryName: string | null;
-  /**
-   * true when the registry scan is too degraded to extract ANY owner name —
-   * a text-based check can then neither convict nor exonerate. Never treated
-   * as a mismatch (an honest farmer with an old CamScanner deed must not be
-   * fraud-flagged); the human reviewer sees the inconclusive card instead.
-   */
   inconclusive?: boolean;
   detail: string;
+  aadhaarNameClean?: string;
+  registryNameClean?: string;
+  transliterated?: string;
+  distance?: number;
 }
 
 /**
@@ -344,6 +393,9 @@ export function crossVerifyIdentity(aadhaar: AadhaarFields, registryText: string
     score: best.score,
     aadhaarName: aName,
     registryName: best.name || null,
+    aadhaarNameClean: aName.trim(),
+    registryNameClean: best.name ? best.name.trim() : (parsed.ownerName ?? undefined),
+    transliterated: transliterate(aName),
     detail: matched
       ? `Aadhaar "${aName}" ↔ registry "${best.name}" (match ${best.score}%)`
       : inconclusive
