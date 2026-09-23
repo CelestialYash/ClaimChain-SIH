@@ -6,7 +6,7 @@ import { pdf } from 'pdf-to-img';
  * tesseract.js and sharp. Deterministic raster at fixed scale.
  */
 
-export async function pdfPages(buf: Buffer, maxPages = 3, scale = 2): Promise<Buffer[]> {
+export async function pdfPages(buf: Buffer, maxPages = 6, scale = 2): Promise<Buffer[]> {
   const doc = await pdf(buf, { scale });
   const pages: Buffer[] = [];
   for await (const png of doc) {
@@ -20,16 +20,21 @@ export async function pdfPages(buf: Buffer, maxPages = 3, scale = 2): Promise<Bu
 export async function pdfToText(
   buf: Buffer,
   ocrFn: (img: Buffer) => Promise<string>,
-  maxPages = 3
+  maxPages = 6
 ): Promise<string> {
   const pages = await pdfPages(buf, maxPages);
   const texts: string[] = [];
+  let pageNum = 1;
   for (const page of pages) {
     try {
-      texts.push(await ocrFn(page));
+      const txt = await ocrFn(page);
+      if (txt.trim()) {
+        texts.push(`[Page ${pageNum}]\n${txt}`);
+      }
     } catch {
       texts.push('');
     }
+    pageNum++;
   }
-  return texts.join('\n').trim();
+  return texts.join('\n\n').trim();
 }

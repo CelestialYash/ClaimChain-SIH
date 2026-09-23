@@ -1,0 +1,13 @@
+{
+  "name": "claimchain-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ClaimChain root workspace runner",
+  "scripts": {
+    "dev": "cd claimc-main && npm run demo",
+    "demo": "cd claimc-main && npm run demo",
+    "web": "cd claimc-main/web && npm run dev",
+    "server": "cd claimc-main/server && npm run dev",
+    "install:all": "cd claimc-main && npm run install:all"
+  }
+}

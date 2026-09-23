@@ -105,6 +105,86 @@ export function buildExplanation(run: VerificationRun, claim: Claim, lang: Expla
 
   const lines: string[] = [OPENERS[lang][run.verdict](claim.claimantName, loss, amt, problems.length)];
 
+  // Evidence-grounded document intelligence reasoning
+  if (run.docSummary) {
+    const d = run.docSummary;
+    const docFacts: string[] = [];
+
+    // Registry: cite actual deed type, district, khasra, area
+    if (d.registry.found) {
+      const regParts: string[] = [];
+      if (d.registry.deedType) regParts.push(d.registry.deedType);
+      if (d.registry.district) regParts.push(lang === 'hi' ? `जिला ${d.registry.district}` : `district ${d.registry.district}`);
+      if (d.registry.village) regParts.push(lang === 'hi' ? `गाँव ${d.registry.village}` : `village ${d.registry.village}`);
+      if (d.registry.khasraNo) regParts.push(lang === 'hi' ? `खसरा नं० ${d.registry.khasraNo}` : `Khasra/Plot #${d.registry.khasraNo}`);
+      if (d.registry.areaHectares) regParts.push(lang === 'hi' ? `रकबा ${d.registry.areaHectares}` : `area ${d.registry.areaHectares}`);
+      if (d.registry.state) regParts.push(d.registry.state);
+      if (regParts.length > 0) {
+        docFacts.push(lang === 'hi' ? `रजिस्ट्री: ${regParts.join(', ')}` : `Registry: ${regParts.join(', ')}`);
+      } else {
+        docFacts.push(lang === 'hi' ? `रजिस्ट्री पठित (${d.registry.language ?? 'mixed'})` : `Registry read (${d.registry.language ?? 'mixed'})`);
+      }
+    }
+
+    // Aadhaar: cite actual cardholder name and masked number
+    if (d.aadhaar.found && (d.aadhaar.name || d.aadhaar.nameDevanagari)) {
+      const aName = d.aadhaar.name ?? d.aadhaar.nameDevanagari ?? '';
+      const maskedPart = d.aadhaar.aadhaarMasked ? ` (${d.aadhaar.aadhaarMasked})` : '';
+      docFacts.push(lang === 'hi' ? `आधार: ${aName}${maskedPart}` : `Aadhaar: ${aName}${maskedPart}`);
+    }
+
+    // Identity cross-check: cite actual names, transliteration, and score
+    if (d.identityCross.matched) {
+      const crossParts = [
+        lang === 'hi' ? `पहचान सत्यापित ${d.identityCross.score}%` : `Identity verified at ${d.identityCross.score}%`,
+      ];
+      if (d.identityCross.aadhaarNameClean && d.identityCross.registryNameClean) {
+        crossParts.push(lang === 'hi'
+          ? `"${d.identityCross.aadhaarNameClean}" ↔ "${d.identityCross.registryNameClean}"`
+          : `Aadhaar "${d.identityCross.aadhaarNameClean}" matched registry "${d.identityCross.registryNameClean}"`);
+      }
+      if (d.identityCross.transliterated) {
+        crossParts.push(lang === 'hi' ? `(लिप्यंतरण: ${d.identityCross.transliterated})` : `(transliterated: ${d.identityCross.transliterated})`);
+      }
+      docFacts.push(crossParts.join(' · '));
+    } else if (d.identityCross.inconclusive) {
+      docFacts.push(lang === 'hi' ? 'पहचान अनिर्णीत — दस्तावेज़ अपठनीय' : 'Identity check inconclusive — document unreadable');
+    } else if (!d.identityCross.matched && d.identityCross.score > 0) {
+      docFacts.push(lang === 'hi'
+        ? `पहचान मेल नहीं खाता (${d.identityCross.score}%)`
+        : `Identity mismatch (best score ${d.identityCross.score}%)`);
+    }
+
+    // Policy: cite actual policy number and sum insured
+    if (d.policy.found && d.policy.policyNumber) {
+      const polParts = [`Policy ${d.policy.policyNumber}`];
+      if (d.policy.sumInsured) polParts.push(lang === 'hi' ? `बीमा राशि ₹${d.policy.sumInsured.toLocaleString('en-IN')}` : `sum insured ₹${d.policy.sumInsured.toLocaleString('en-IN')}`);
+      if (d.policy.insuredName) polParts.push(lang === 'hi' ? `बीमाधारक ${d.policy.insuredName}` : `insured: ${d.policy.insuredName}`);
+      if (d.policy.coverage && d.policy.coverage.length > 0) polParts.push(`covers: ${d.policy.coverage.join(', ')}`);
+      docFacts.push(polParts.join(' · '));
+    }
+
+    // Satellite destruction assessment
+    if (d.satellite.found && d.satellite.destructionPct != null) {
+      const satText = lang === 'hi'
+        ? `उपग्रह: ${d.satellite.destructionPct}% विनाश (स्तर: ${d.satellite.rung ?? '?'})`
+        : `Satellite: ${d.satellite.destructionPct}% destruction (rung: ${d.satellite.rung ?? '?'})`;
+      docFacts.push(satText);
+      if (d.pctDelta != null && d.claimedPct != null) {
+        docFacts.push(lang === 'hi'
+          ? `दावा किया ${d.claimedPct}% बनाम मापा ${d.satellite.destructionPct}% (Δ ${d.pctDelta} pts)`
+          : `Claimed ${d.claimedPct}% vs measured ${d.satellite.destructionPct}% (Δ ${d.pctDelta} pts)`);
+      }
+    }
+
+    if (docFacts.length > 0) {
+      lines.push(lang === 'hi' ? '• दस्तावेज़ प्रमाण:' : '• Document evidence:');
+      for (const fact of docFacts) {
+        lines.push(`  → ${fact}`);
+      }
+    }
+  }
+
   if (problems.length > 0) {
     lines.push(lang === 'hi' ? 'AI को क्या मिला:' : 'What the AI found:');
     for (const p of problems.slice(0, 4)) {

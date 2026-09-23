@@ -30,15 +30,16 @@ async function getWorker(): Promise<Worker> {
 }
 
 /**
- * Preprocess for OCR: grayscale + 3x upscale + normalize. Small embedded text
- * in field photos is unreadable to Tesseract at native size; this is standard
- * OCR preprocessing and dramatically improves recall on our 320px evidence.
+ * Preprocess for OCR: grayscale + 3x upscale + sharpen + normalize.
+ * High-frequency noise suppression and contrast normalization significantly
+ * improve Tesseract's character recognition on mobile phone photos and scans.
  */
 async function preprocess(image: Buffer): Promise<Buffer> {
   try {
     return await sharp(image)
-      .resize({ width: 960, withoutEnlargement: false })
+      .resize({ width: 1400, withoutEnlargement: false })
       .greyscale()
+      .sharpen({ sigma: 1.2 })
       .normalise()
       .png()
       .toBuffer();
@@ -49,7 +50,7 @@ async function preprocess(image: Buffer): Promise<Buffer> {
 
 export async function ocrText(image: Buffer): Promise<string> {
   try {
-    if (isPdf(image)) return ''; // leptonica cannot read PDFs — and the async worker throw would kill the process
+    if (isPdf(image)) return ''; // leptonica cannot read PDFs — rasterize first
     const worker = await getWorker();
     const input = await preprocess(image);
     const { data } = await worker.recognize(input);
@@ -116,33 +117,74 @@ export interface PolicyFields {
   confidence: number; // 0..1 — how much of the expected structure was found
 }
 
-const POLICY_RE = /\bMH-\d{2}-\d{4}\b/i;
-const AMOUNT_RE = /(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)|(?:claim amount:?\s*)([\d,]+)/i;
-const NAME_LINE_RE = /(?:insured|claimant|name)\s*[:\-]\s*([A-Za-z]+(?:\s+[A-Za-z]+){0,1})/i;
+const POLICY_PATTERNS = [
+  /\b(MH-\d{2}-\d{4})\b/i, // seed & demo policy
+  /\b(PMFBY\/[A-Z0-9\/-]{4,28})\b/i, // PMFBY formats
+  /\b(?:policy|pol|cover|cert(?:ificate)?)\s*(?:no\.?|num|#)?\s*[:\-]?\s*([A-Z0-9][A-Z0-9\/-]{4,24})\b/i,
+  /\b([A-Z]{2,5}[-\/]\d{2,4}[-\/][A-Z0-9\/-]{4,16})\b/i,
+];
+
+const AMOUNT_PATTERNS = [
+  /(?:rs\.?|inr|₹|रू0?|रु)\s*([\d,]+(?:\.\d{1,2})?)/i,
+  /(?:claim|bill|total|loss|net|insured|sum insured)\s*(?:amount|value|sum)?\s*[:\-]?\s*(?:rs\.?|inr|₹|रू)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+];
+
+const NAME_PATTERNS = [
+  /(?:insured|claimant|farmer|holder|beneficiary|नाम|क्रेता)\s*(?:name)?\s*[:\-]\s*([A-Za-z\u0900-\u097F]+(?:\s+[A-Za-z\u0900-\u097F]+){0,2})/i,
+  /\b(?:shri|smt|mr|mrs)\.?\s+([A-Za-z\u0900-\u097F]+(?:\s+[A-Za-z\u0900-\u097F]+){1,2})/i,
+  /(?:name|naam)\s*[:\-]\s*([A-Za-z]+(?:\s+[A-Za-z]+){0,2})/i,
+];
 
 /**
  * Extract claim-relevant fields from OCR text of a bill / ID document.
- * Deterministic parser over the deterministic synthetic documents.
+ * Matches standard Indian insurance policies, bills, and farmer documents.
  */
 export function parsePolicyFields(text: string): PolicyFields {
   const t = text.replace(/\s+/g, ' ');
-  const policyMatch = t.match(POLICY_RE);
-  const amountMatch = t.match(AMOUNT_RE);
-  const nameMatch = t.match(NAME_LINE_RE);
 
-  const amountRaw = amountMatch?.[1] ?? amountMatch?.[2];
-  const amount = amountRaw ? Number(amountRaw.replace(/,/g, '')) : null;
+  let policyNumber: string | null = null;
+  for (const re of POLICY_PATTERNS) {
+    const m = t.match(re);
+    if (m?.[1] || m?.[0]) {
+      policyNumber = (m[1] ?? m[0]).trim().toUpperCase();
+      break;
+    }
+  }
+
+  let amount: number | null = null;
+  for (const re of AMOUNT_PATTERNS) {
+    const m = t.match(re);
+    if (m?.[1]) {
+      const parsed = Number(m[1].replace(/,/g, ''));
+      if (Number.isFinite(parsed) && parsed > 0 && parsed < 10_000_000) {
+        amount = Math.round(parsed);
+        break;
+      }
+    }
+  }
+
+  let name: string | null = null;
+  for (const re of NAME_PATTERNS) {
+    const m = t.match(re);
+    if (m?.[1]) {
+      const candidate = m[1].trim();
+      if (candidate.length >= 3 && !/^(total|amount|bill|rs|inr)$/i.test(candidate)) {
+        name = candidate;
+        break;
+      }
+    }
+  }
 
   let hits = 0;
-  if (policyMatch) hits++;
-  if (amount != null && Number.isFinite(amount)) hits++;
-  if (nameMatch) hits++;
+  if (policyNumber) hits++;
+  if (amount != null) hits++;
+  if (name) hits++;
 
   return {
-    policyNumber: policyMatch ? policyMatch[0].toUpperCase() : null,
-    name: nameMatch ? nameMatch[1].trim() : null,
-    amount: amount != null && Number.isFinite(amount) ? Math.round(amount) : null,
-    confidence: hits / 3,
+    policyNumber,
+    name,
+    amount,
+    confidence: Number((hits / 3).toFixed(2)),
   };
 }
 

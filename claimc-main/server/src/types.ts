@@ -55,15 +55,58 @@ export interface VerificationRun {
   docSummary?: DocSummary;
 }
 
+export interface DocEntity {
+  docKind: string;
+  label: string;
+  value: string;
+  confidence: number;
+}
+
 /** Cross-document verification result surfaced to the frontend (stage 3/4/5). */
 export interface DocSummary {
-  registry: { found: boolean; deedType?: string; district?: string; village?: string; executionDate?: string; language?: 'hindi' | 'english' | 'mixed' };
-  aadhaar: { found: boolean; name?: string; nameDevanagari?: string; aadhaarMasked?: string };
-  identityCross: { matched: boolean; score: number; detail: string; inconclusive?: boolean };
-  policy: { found: boolean; policyNumber?: string; sumInsured?: number; coverage?: string[] };
+  registry: {
+    found: boolean;
+    deedType?: string;
+    district?: string;
+    village?: string;
+    executionDate?: string;
+    khasraNo?: string;
+    areaHectares?: string;
+    state?: string;
+    language?: 'hindi' | 'english' | 'mixed';
+  };
+  aadhaar: {
+    found: boolean;
+    name?: string;
+    nameDevanagari?: string;
+    aadhaarMasked?: string;
+    dob?: string;
+    gender?: string;
+  };
+  identityCross: {
+    matched: boolean;
+    score: number;
+    detail: string;
+    inconclusive?: boolean;
+    aadhaarNameClean?: string;
+    registryNameClean?: string;
+    transliterated?: string;
+    distance?: number;
+  };
+  policy: {
+    found: boolean;
+    policyNumber?: string;
+    sumInsured?: number;
+    coverage?: string[];
+    insuredName?: string;
+  };
   satellite: { found: boolean; destructionPct?: number; rung?: string };
   claimedPct?: number;
   pctDelta?: number;
+  /** Snippets of raw text read from documents by OCR (fileId -> raw text snippet). */
+  rawSnippets?: Record<string, string>;
+  /** Key-value entities extracted across all farmer documents. */
+  extractedEntities?: DocEntity[];
 }
 
 /** A previously DECIDED claim that visually resembles this claim's evidence. */
