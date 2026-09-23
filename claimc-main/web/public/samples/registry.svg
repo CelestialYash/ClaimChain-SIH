@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="220" viewBox="0 0 320 220">
+  <rect width="320" height="220" fill="#f5efdd"/>
+  <rect x="8" y="8" width="304" height="204" fill="none" stroke="#9c8a4d" stroke-width="2"/>
+  <rect x="14" y="14" width="292" height="192" fill="none" stroke="#c4b47e" stroke-width="1"/>
+  <text x="160" y="38" text-anchor="middle" font-family="serif" font-size="17" fill="#5a4a1a">विक्रय विलेख</text>
+  <text x="160" y="56" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#8a7a4a">SALE DEED · LAND REGISTRY</text>
+  <line x1="30" y1="70" x2="290" y2="70" stroke="#c4b47e" stroke-width="1"/>
+  <rect x="30" y="84" width="120" height="9" rx="2" fill="#d9cba0"/>
+  <rect x="30" y="102" width="180" height="9" rx="2" fill="#d9cba0"/>
+  <rect x="30" y="120" width="90" height="9" rx="2" fill="#d9cba0"/>
+  <rect x="30" y="138" width="150" height="9" rx="2" fill="#d9cba0"/>
+  <circle cx="250" cy="150" r="26" fill="none" stroke="#9c8a4d" stroke-width="2" opacity="0.7"/>
+  <text x="250" y="154" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#9c8a4d">STAMP</text>
+  <text x="160" y="192" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#8a7a4a">Hindi or English · any format</text>
+</svg>

@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Vite
+web/dist/
+
+# Hardhat
+blockchain/artifacts/
+blockchain/cache/
+blockchain/typechain-types/
+
+# Env & secrets
+.env
+.env.local
+.env.*.local
+
+# Editor / OS
+.DS_Store
+*.log
+
+# Coverage
+coverage/

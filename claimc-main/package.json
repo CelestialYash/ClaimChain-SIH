@@ -1,0 +1,14 @@
+{
+  "name": "claimchain",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ClaimChain — AI-assisted micro-insurance claims with an immutable hash-chained audit trail",
+  "scripts": {
+    "demo": "bash scripts/demo.sh",
+    "smoke": "bash server/scripts/smoke-test.sh",
+    "web": "cd web && npm run dev",
+    "server": "cd server && npm run dev",
+    "chain:test": "cd blockchain && npm test",
+    "install:all": "cd web && npm install && cd ../server && npm install && cd ../blockchain && npm install"
+  }
+}

@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PrudentLife - Always clear. Never complicated.</title>
+<!-- Tailwind CSS CDN with plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts for Plus Jakarta Sans -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind Configuration -->
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              ink: '#0A0A0A',
+              headline: '#111111',
+              body: '#6B6A62',
+              cream: '#F7F4ED',
+              tinted: '#EDE9E0',
+              border: '#E3E0D6',
+              sageBg: '#E7ECDF',
+              chipLavender: '#E6DFF4',
+              chipMint: '#DCE9DA',
+              chipBlush: '#F6E1D8',
+              footerMuted: '#B8B8B0'
+            }
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+<style data-purpose="base-styling">
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      color: #111111;
+      background-color: #F7F4ED;
+      -webkit-font-smoothing: antialiased;
+    }
+  </style>
+</head>
+<body class="bg-[#F7F4ED] text-[#111111] selection:bg-[#DCE9DA] selection:text-[#0A0A0A]">
+<!-- BEGIN: MainHeader -->
+<header class="w-full bg-[#0A0A0A] text-white border-b border-white/10 sticky top-0 z-50">
+<div class="max-w-7xl mx-auto px-6 lg:px-12 h-20 flex items-center justify-between">
+<!-- Brand Logo -->
+<a class="flex items-center gap-2.5 group" data-purpose="brand-logo" href="#">
+<div class="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-teal-300 group-hover:bg-teal-400 group-hover:text-[#0A0A0A] transition duration-200">
+<svg class="w-4 h-4" fill="currentColor" viewbox="0 0 24 24">
+<path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 2.18l7 3.12v4.7c0 4.67-3.13 9.04-7 10.15-3.87-1.11-7-5.48-7-10.15V6.3l7-3.12z"></path>
+</svg>
+</div>
+<span class="text-xl font-bold tracking-tight text-white">Prudent<span class="text-teal-300">Life</span></span>
+</a>
+<!-- Desktop Navigation Menu -->
+<nav class="hidden md:flex items-center space-x-8 text-[14px] font-medium text-neutral-300" data-purpose="primary-navigation">
+<a class="text-white transition-colors duration-150" href="#home">Home</a>
+<div class="relative group">
+<button class="flex items-center gap-1.5 hover:text-white transition-colors duration-150 py-2 text-[14px]">
+<span>Services</span>
+<svg class="w-3.5 h-3.5 text-neutral-400 group-hover:text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+</div>
+<a class="hover:text-white transition-colors duration-150" href="#about">About Us</a>
+<a class="hover:text-white transition-colors duration-150" href="#agent">Find an Agent</a>
+<a class="hover:text-white transition-colors duration-150" href="#contact">Contact Us</a>
+</nav>
+<!-- Right Action CTA -->
+<div class="flex items-center gap-4">
+<a class="hidden sm:inline-flex items-center justify-center px-6 py-2.5 rounded-full text-[14px] font-semibold bg-white text-[#0A0A0A] hover:bg-teal-300 transition duration-200 shadow-sm" href="#quote">
+          Get in touch
+        </a>
+</div>
+</div>
+</header>
+<!-- END: MainHeader -->
+<main>
+<!-- BEGIN: HeroSection -->
+<section class="relative w-full overflow-hidden bg-[#0A0A0A] min-h-[580px] lg:min-h-[640px] flex items-center justify-center">
+<!-- Background Imagery with Gradient Overlay -->
+<div class="absolute inset-0 z-0">
+<img alt="Happy smiling family in sunlight" class="w-full h-full object-cover object-center opacity-70" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAZhuCmEv-p6XhQ9v3pq7LHQpj63_RlWZnIFHeyzOFn4Td2mkytWwb305xl81Pgp6HEuZuXAHPGVTm4-ceAqc_ZGwj-RkYj9m52W1sbABhK_tQK3v2Ga45PRsDRhhKlMY3gZkMgUiemSPGyQxAN_OHzFqxCMIqSkUHOT4t8u1x7x8m7_6ajQtwzpJQWTZlqXNj1nSjRhy-AmZ0SrGC-wU-hPE_zN1NWVwVK8Xzo3qDjlkc_RCKTsY2T4Q"/>
+<div class="absolute inset-0 bg-gradient-to-r from-black/90 via-black/65 to-black/35"></div>
+</div>
+<!-- Hero Content Container -->
+<div class="relative z-10 max-w-7xl mx-auto px-6 lg:px-12 py-20 w-full">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+<!-- Left Hero Text Headline -->
+<div class="lg:col-span-7 text-white space-y-6">
+<h1 class="text-[44px] sm:text-[48px] lg:text-[48px] font-bold tracking-tight leading-[1.12]">
+              Always clear.<br/>
+<span class="text-stone-200">Never complicated.</span>
+</h1>
+<p class="text-[15px] sm:text-[16px] text-neutral-300 max-w-lg font-normal leading-[1.6]">
+              Experience the peace of mind with tailored protection for you and your loved ones. Clear policies, honest advice, and dedicated care.
+            </p>
+</div>
+<!-- Right Floating Quick Quote Card -->
+<div class="lg:col-span-5 flex justify-start lg:justify-end">
+<div class="w-full max-w-md bg-white rounded-2xl p-7 sm:p-8 shadow-sm border border-[#E3E0D6]">
+<h2 class="text-[19px] font-bold text-[#111111] mb-1">Find a local agent</h2>
+<p class="text-[13px] text-[#6B6A62] mb-6 font-normal">Enter your ZIP code to get started</p>
+<form class="space-y-4" onsubmit="event.preventDefault();">
+<div>
+<label class="sr-only" for="zipcode">ZIP Code</label>
+<input class="w-full rounded-lg border border-[#E3E0D6] px-4 py-3 text-[14px] text-[#111111] placeholder-[#6B6A62]/60 focus:outline-none focus:ring-1 focus:ring-[#0A0A0A] focus:border-[#0A0A0A] transition" id="zipcode" name="zipcode" placeholder="Enter zip code here" type="text"/>
+</div>
+<button class="w-full bg-[#0A0A0A] hover:bg-neutral-800 text-white font-semibold py-3 px-6 rounded-full text-[14px] transition-all duration-150 flex items-center justify-center gap-2" type="submit">
+                  Start quote
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M14 5l7 7m0 0l-7 7m7-7H3" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+</form>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- END: HeroSection -->
+<!-- BEGIN: ValueProposition -->
+<section class="py-24 bg-[#F7F4ED] border-b border-[#E3E0D6]">
+<div class="max-w-7xl mx-auto px-6 lg:px-12">
+<!-- Top Split Title & Narrative -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start mb-16">
+<div class="lg:col-span-5">
+<h2 class="text-[32px] font-bold tracking-tight text-[#111111] leading-[1.15]">
+              Keeping Insurance Simple and Understandable
+            </h2>
+</div>
+<div class="lg:col-span-7">
+<p class="text-[#6B6A62] text-[15px] sm:text-[16px] leading-[1.6] mb-10">
+              Our team at PrudentLife is dedicated to demystifying insurance. We are committed to delivering straightforward policies and a seamless experience, so you can trust that your protection is always clear and never complicated.
+            </p>
+<!-- Three Core Feature Pillars -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<!-- Feature 1 -->
+<div class="bg-white border border-[#E3E0D6] p-5 rounded-2xl transition hover:border-[#111111]/30">
+<div class="w-10 h-10 rounded-xl bg-[#E6DFF4] flex items-center justify-center text-[#111111] mb-4">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"></path>
+</svg>
+</div>
+<p class="text-[14px] font-semibold text-[#111111] leading-snug">Great coverage at a great price</p>
+</div>
+<!-- Feature 2 -->
+<div class="bg-white border border-[#E3E0D6] p-5 rounded-2xl transition hover:border-[#111111]/30">
+<div class="w-10 h-10 rounded-xl bg-[#DCE9DA] flex items-center justify-center text-[#111111] mb-4">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"></path>
+</svg>
+</div>
+<p class="text-[14px] font-semibold text-[#111111] leading-snug">Sold exclusively through our agents</p>
+</div>
+<!-- Feature 3 -->
+<div class="bg-white border border-[#E3E0D6] p-5 rounded-2xl transition hover:border-[#111111]/30">
+<div class="w-10 h-10 rounded-xl bg-[#F6E1D8] flex items-center justify-center text-[#111111] mb-4">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"></path>
+</svg>
+</div>
+<p class="text-[14px] font-semibold text-[#111111] leading-snug">Trusted financial strength</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Metric Counter Grid -->
+<div class="pt-12 border-t border-[#E3E0D6] grid grid-cols-2 lg:grid-cols-4 gap-8 text-center" data-purpose="metrics-counter">
+<div class="space-y-1">
+<p class="text-[36px] font-bold tracking-tight text-[#0A0A0A] leading-tight">20+</p>
+<p class="text-[13px] text-[#6B6A62] font-medium">Years of Experience</p>
+</div>
+<div class="space-y-1">
+<p class="text-[36px] font-bold tracking-tight text-[#0A0A0A] leading-tight">90%</p>
+<p class="text-[13px] text-[#6B6A62] font-medium">Claim Satisfaction Rate</p>
+</div>
+<div class="space-y-1">
+<p class="text-[36px] font-bold tracking-tight text-[#0A0A0A] leading-tight">$100+</p>
+<p class="text-[13px] text-[#6B6A62] font-medium">Average Annual Savings</p>
+</div>
+<div class="space-y-1">
+<p class="text-[36px] font-bold tracking-tight text-[#0A0A0A] leading-tight">30+</p>
+<p class="text-[13px] text-[#6B6A62] font-medium">Countries worldwide</p>
+</div>
+</div>
+</div>
+</section>
+<!-- END: ValueProposition -->
+<!-- BEGIN: CoverageSection -->
+<section class="py-24 bg-[#E7ECDF] border-b border-[#E3E0D6]" id="services">
+<div class="max-w-7xl mx-auto px-6 lg:px-12">
+<!-- Section Header -->
+<div class="max-w-3xl mb-14 space-y-4">
+<h2 class="text-[32px] font-bold tracking-tight text-[#111111] leading-[1.15]">
+            Insurance for your car and home — plus all the fun stuff in between
+          </h2>
+<p class="text-[#6B6A62] text-[15px] sm:text-[16px] leading-[1.6]">
+            Learn more about the products we offer, then connect with a local PrudentLife agent to learn about the best coverage options and pricing for you.
+          </p>
+</div>
+<!-- Cards Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6" data-purpose="product-category-grid">
+<!-- Card: Vehicle -->
+<article class="bg-white rounded-2xl p-8 border border-[#E3E0D6] hover:border-[#111111]/40 transition-all duration-200 flex flex-col justify-between group">
+<div>
+<div class="flex items-center justify-between mb-8">
+<div class="w-12 h-12 rounded-xl bg-[#E7ECDF] flex items-center justify-center text-[#111111]">
+<svg class="w-6 h-6" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M8 17a2 2 0 100-4 2 2 0 000 4zm8 0a2 2 0 100-4 2 2 0 000 4zM5 9l2-4h10l2 4M3 13h18l-1.5 5.5a1 1 0 01-.97.75H5.47a1 1 0 01-.97-.75L3 13z" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"></path>
+</svg>
+</div>
+<span class="w-9 h-9 rounded-full bg-[#F7F4ED] group-hover:bg-[#0A0A0A] group-hover:text-white flex items-center justify-center text-[#111111] transition-colors">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M14 5l7 7m0 0l-7 7m7-7H3" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</span>
+</div>
+<h3 class="text-[19px] font-semibold text-[#111111] mb-3">Vehicle</h3>
+<p class="text-[15px] text-[#6B6A62] leading-[1.6]">
+                Whether you're on the road or the water, we're here to help you get the insurance you need.
+              </p>
+</div>
+<div class="pt-6 mt-6 border-t border-[#E3E0D6]">
+<span class="text-[13px] font-semibold text-[#111111] group-hover:underline inline-flex items-center gap-1">
+                Explore auto &amp; vehicles
+              </span>
+</div>
+</article>
+<!-- Card: Home -->
+<article class="bg-white rounded-2xl p-8 border border-[#E3E0D6] hover:border-[#111111]/40 transition-all duration-200 flex flex-col justify-between group">
+<div>
+<div class="flex items-center justify-between mb-8">
+<div class="w-12 h-12 rounded-xl bg-[#E6DFF4] flex items-center justify-center text-[#111111]">
+<svg class="w-6 h-6" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"></path>
+</svg>
+</div>
+<span class="w-9 h-9 rounded-full bg-[#F7F4ED] group-hover:bg-[#0A0A0A] group-hover:text-white flex items-center justify-center text-[#111111] transition-colors">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M14 5l7 7m0 0l-7 7m7-7H3" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</span>
+</div>
+<h3 class="text-[19px] font-semibold text-[#111111] mb-3">Home</h3>
+<p class="text-[15px] text-[#6B6A62] leading-[1.6]">
+                We can help with insurance for your home and belongings whether you own, rent, or lease.
+              </p>
+</div>
+<div class="pt-6 mt-6 border-t border-[#E3E0D6]">
+<span class="text-[13px] font-semibold text-[#111111] group-hover:underline inline-flex items-center gap-1">
+                Explore homeowners &amp; renters
+              </span>
+</div>
+</article>
+<!-- Card: Business -->
+<article class="bg-white rounded-2xl p-8 border border-[#E3E0D6] hover:border-[#111111]/40 transition-all duration-200 flex flex-col justify-between group">
+<div>
+<div class="flex items-center justify-between mb-8">
+<div class="w-12 h-12 rounded-xl bg-[#F6E1D8] flex items-center justify-center text-[#111111]">
+<svg class="w-6 h-6" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"></path>
+</svg>
+</div>
+<span class="w-9 h-9 rounded-full bg-[#F7F4ED] group-hover:bg-[#0A0A0A] group-hover:text-white flex items-center justify-center text-[#111111] transition-colors">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M14 5l7 7m0 0l-7 7m7-7H3" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</span>
+</div>
+<h3 class="text-[19px] font-semibold text-[#111111] mb-3">Business</h3>
+<p class="text-[15px] text-[#6B6A62] leading-[1.6]">
+                Protecting your business can be tricky. Finding the right custom commercial protection doesn't have to be.
+              </p>
+</div>
+<div class="pt-6 mt-6 border-t border-[#E3E0D6]">
+<span class="text-[13px] font-semibold text-[#111111] group-hover:underline inline-flex items-center gap-1">
+                Explore commercial coverage
+              </span>
+</div>
+</article>
+</div>
+</div>
+</section>
+<!-- END: CoverageSection -->
+<!-- BEGIN: QuickAccessSection -->
+<section class="py-24 bg-[#F7F4ED] border-b border-[#E3E0D6]">
+<div class="max-w-7xl mx-auto px-6 lg:px-12">
+<div class="text-center max-w-2xl mx-auto mb-14">
+<h2 class="text-[32px] font-bold tracking-tight text-[#111111] mb-3 leading-[1.15]">
+            Quick access to all things PrudentLife
+          </h2>
+<p class="text-[#6B6A62] text-[15px] sm:text-[16px] leading-[1.6]">
+            It's easy to view ID cards, pay bills and access policy information online with our self-service tools.
+          </p>
+</div>
+<!-- 2 Side-by-Side Action Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto" data-purpose="self-service-tools">
+<div class="p-6 sm:p-8 rounded-2xl bg-white border border-[#E3E0D6] hover:border-[#111111]/30 transition duration-150 flex items-start gap-5">
+<div class="w-12 h-12 rounded-xl bg-[#F7F4ED] border border-[#E3E0D6] flex items-center justify-center text-[#111111] shrink-0">
+<svg class="w-6 h-6" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"></path>
+</svg>
+</div>
+<div>
+<h3 class="text-[19px] font-semibold text-[#111111] mb-1">My Account</h3>
+<p class="text-[15px] text-[#6B6A62] leading-[1.6] mb-4">
+                Manage your policies, pay bills, and get instant digital ID cards, all in one central location.
+              </p>
+<a class="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#111111] hover:text-[#6B6A62] transition" href="#">
+<span>Access your account</span>
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</a>
+</div>
+</div>
+<div class="p-6 sm:p-8 rounded-2xl bg-white border border-[#E3E0D6] hover:border-[#111111]/30 transition duration-150 flex items-start gap-5">
+<div class="w-12 h-12 rounded-xl bg-[#F7F4ED] border border-[#E3E0D6] flex items-center justify-center text-[#111111] shrink-0">
+<svg class="w-6 h-6" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"></path>
+</svg>
+</div>
+<div>
+<h3 class="text-[19px] font-semibold text-[#111111] mb-1">Start a claim</h3>
+<p class="text-[15px] text-[#6B6A62] leading-[1.6] mb-4">
+                Get the help you need in no time with 24/7 online claims support and step-by-step progress tracking.
+              </p>
+<a class="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#111111] hover:text-[#6B6A62] transition" href="#">
+<span>File claim online</span>
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</a>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- END: QuickAccessSection -->
+<!-- BEGIN: MobileAppSection -->
+<section class="py-20 lg:py-28 bg-[#F7F4ED] overflow-hidden">
+<div class="max-w-7xl mx-auto px-6 lg:px-12">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
+<!-- Visual: App Device Mockup with Badge Overlays -->
+<div class="lg:col-span-6 flex justify-center order-2 lg:order-1">
+<div class="relative max-w-sm w-full">
+<!-- Rounded Phone Screen Frame -->
+<div class="relative z-10 rounded-3xl overflow-hidden border border-[#E3E0D6] bg-white">
+<img alt="Customer holding smartphone with PrudentLife application" class="w-full h-80 sm:h-96 object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDonKctmlJ9hUy25O-PSW3Zant1RC4SfrrQXkP_Bkpc_8c1-qKd71DuCTSEbOaUnMx205EYgjGSRywwIQ8SMqB5sKojFUOHHPjeWnzJH47-D0CZ4uiTE3vmkdTcxI_4UBxp-tVxp2Y2gE4ovOLAKphR-pYQCybETwi2xxYZh-b72oUHqICVTWyBeoKR7OaE74TQtlYMAiMsznhe4dFj-WkFYWBkgsO7xx2sJ1Rj_ODCMk37tavyMli2IQ"/>
+<div class="p-4 bg-white space-y-2">
+<div class="flex items-center justify-between text-[12px] text-[#6B6A62] font-medium pb-2 border-b border-[#E3E0D6]">
+<span>Quick Tasks</span>
+<span class="text-teal-600 font-semibold">Connected</span>
+</div>
+<!-- Floating Pill Quick Actions inside Card -->
+<div class="flex flex-wrap gap-2 pt-1">
+<span class="inline-flex items-center gap-1.5 text-[12px] bg-[#F7F4ED] border border-[#E3E0D6] text-[#111111] px-3 py-1.5 rounded-full font-medium transition cursor-pointer">
+<span class="w-2 h-2 rounded-full bg-emerald-500"></span> Get ID cards
+                    </span>
+<span class="inline-flex items-center gap-1.5 text-[12px] bg-[#F7F4ED] border border-[#E3E0D6] text-[#111111] px-3 py-1.5 rounded-full font-medium transition cursor-pointer">
+<span class="w-2 h-2 rounded-full bg-sky-500"></span> File a claim
+                    </span>
+<span class="inline-flex items-center gap-1.5 text-[12px] bg-[#F7F4ED] border border-[#E3E0D6] text-[#111111] px-3 py-1.5 rounded-full font-medium transition cursor-pointer">
+<span class="w-2 h-2 rounded-full bg-amber-500"></span> Roadside assist
+                    </span>
+<span class="inline-flex items-center gap-1.5 text-[12px] bg-[#F7F4ED] border border-[#E3E0D6] text-[#111111] px-3 py-1.5 rounded-full font-medium transition cursor-pointer">
+<span class="w-2 h-2 rounded-full bg-purple-500"></span> Pay your bill
+                    </span>
+</div>
+</div>
+</div>
+<!-- Decorative Backdrop Blobs -->
+<div class="absolute -top-6 -left-6 w-60 h-60 bg-[#DCE9DA]/50 rounded-full filter blur-2xl -z-0"></div>
+<div class="absolute -bottom-6 -right-6 w-60 h-60 bg-[#E6DFF4]/60 rounded-full filter blur-2xl -z-0"></div>
+</div>
+</div>
+<!-- App Copy & Download Button -->
+<div class="lg:col-span-6 space-y-6 order-1 lg:order-2">
+<h2 class="text-[32px] sm:text-[36px] font-bold tracking-tight text-[#111111] leading-[1.15]">
+              Stay connected with our mobile app
+            </h2>
+<p class="text-[#6B6A62] text-[15px] sm:text-[16px] leading-[1.6] max-w-lg">
+              Get ID cards, policy information and 24/7 roadside assistance at the tip of your fingers whenever life takes an unexpected turn.
+            </p>
+<div class="pt-2">
+<a class="inline-flex items-center justify-center px-8 py-3.5 rounded-full bg-[#0A0A0A] hover:bg-neutral-800 text-white font-semibold text-[14px] transition duration-150" href="#download">
+                Download app
+              </a>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- END: MobileAppSection -->
+<!-- BEGIN: TestimonialSection -->
+<section class="py-24 bg-[#F7F4ED] border-y border-[#E3E0D6]" data-purpose="customer-testimonial">
+<div class="max-w-4xl mx-auto px-6 text-center">
+<!-- Quote Icon -->
+<div class="flex justify-center mb-6 text-[#111111]/25">
+<svg class="w-12 h-12" fill="currentColor" viewbox="0 0 24 24">
+<path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"></path>
+</svg>
+</div>
+<blockquote class="text-[20px] sm:text-[24px] lg:text-[28px] font-normal tracking-tight text-[#111111] leading-[1.4] mb-8">
+          “I’ve been with PrudentLife for years, and their service is simply outstanding. Their commitment to <span class="italic font-normal">‘Always clear, never complicated’</span> is more than just a motto; it's the reality of my experience. PrudentLife gives me peace of mind like no other.”
+        </blockquote>
+<div class="space-y-1">
+<p class="font-bold text-[#111111] text-[15px]">Alice Adams</p>
+<p class="text-[12px] text-[#6B6A62] uppercase tracking-wider font-medium">Property Developer</p>
+</div>
+</div>
+</section>
+<!-- END: TestimonialSection -->
+<!-- BEGIN: BottomCtaBanner -->
+<section class="py-16 bg-[#F7F4ED]">
+<div class="max-w-7xl mx-auto px-6 lg:px-12">
+<div class="rounded-3xl bg-[#EDE9E0] border border-[#E3E0D6] p-8 sm:p-12 lg:p-16">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+<!-- Left Headline -->
+<div class="lg:col-span-7 space-y-2">
+<h2 class="text-[28px] sm:text-[32px] font-bold tracking-tight text-[#111111] leading-[1.15]">
+                Start with a quote —<br class="hidden sm:inline"/> finish with an agent
+              </h2>
+<p class="text-[14px] text-[#6B6A62]">
+                Get ID cards, policy information and 24/7 roadside assistance.
+              </p>
+</div>
+<!-- Right Quick Widget -->
+<div class="lg:col-span-5 bg-white rounded-2xl p-6 border border-[#E3E0D6]">
+<h3 class="text-[16px] font-bold text-[#111111] mb-1">Find a local agent</h3>
+<p class="text-[12px] text-[#6B6A62] mb-4">Enter your ZIP code to get started</p>
+<form class="flex flex-col sm:flex-row gap-3" onsubmit="event.preventDefault();">
+<input class="flex-1 rounded-lg border border-[#E3E0D6] px-3.5 py-2.5 text-[13px] text-[#111111] placeholder-[#6B6A62]/60 focus:outline-none focus:ring-1 focus:ring-[#0A0A0A] focus:border-[#0A0A0A]" placeholder="Enter zip code here" type="text"/>
+<button class="bg-[#0A0A0A] hover:bg-neutral-800 text-white font-semibold py-2.5 px-5 rounded-full text-[13px] whitespace-nowrap transition duration-150" type="submit">
+                  Start quote
+                </button>
+</form>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- END: BottomCtaBanner -->
+</main>
+<!-- BEGIN: MainFooter -->
+<footer class="bg-[#0A0A0A] text-white pt-16 pb-12 border-t border-neutral-900" data-purpose="site-footer">
+<div class="max-w-7xl mx-auto px-6 lg:px-12">
+<!-- Top Brand Statement -->
+<div class="pb-12 mb-12 border-b border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-teal-300">
+<svg class="w-4 h-4" fill="currentColor" viewbox="0 0 24 24">
+<path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 2.18l7 3.12v4.7c0 4.67-3.13 9.04-7 10.15-3.87-1.11-7-5.48-7-10.15V6.3l7-3.12z"></path>
+</svg>
+</div>
+<span class="text-xl font-bold tracking-tight text-white">Prudent<span class="text-teal-300">Life</span></span>
+</div>
+<p class="text-[14px] text-[#B8B8B0] font-normal">
+          Always clear. Never complicated.
+        </p>
+</div>
+<!-- Links Multi-Column Grid -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-8 mb-16 text-[13px] text-[#B8B8B0]">
+<!-- Column 1 -->
+<div class="space-y-3">
+<p class="text-white font-semibold uppercase tracking-wider text-[11px]">Quick links</p>
+<ul class="space-y-2.5">
+<li><a class="hover:text-white transition" href="#">Help &amp; support</a></li>
+<li><a class="hover:text-white transition" href="#">Claims</a></li>
+<li><a class="hover:text-white transition" href="#">Resources</a></li>
+<li><a class="hover:text-white transition" href="#">Sitemap</a></li>
+<li><a class="hover:text-white transition" href="#">Insurance coverages</a></li>
+</ul>
+</div>
+<!-- Column 2 -->
+<div class="space-y-3">
+<p class="text-white font-semibold uppercase tracking-wider text-[11px]">Solutions</p>
+<ul class="space-y-2.5">
+<li><a class="hover:text-white transition" href="#">Home Insurance</a></li>
+<li><a class="hover:text-white transition" href="#">Car Insurance</a></li>
+<li><a class="hover:text-white transition" href="#">Motorcycle Insurance</a></li>
+<li><a class="hover:text-white transition" href="#">Life Insurance</a></li>
+<li><a class="hover:text-white transition" href="#">Business Insurance</a></li>
+</ul>
+</div>
+<!-- Column 3 -->
+<div class="space-y-3">
+<p class="text-white font-semibold uppercase tracking-wider text-[11px]">Company</p>
+<ul class="space-y-2.5">
+<li><a class="hover:text-white transition" href="#">About us</a></li>
+<li><a class="hover:text-white transition" href="#">Underwriting companies</a></li>
+<li><a class="hover:text-white transition" href="#">Join with us</a></li>
+<li><a class="hover:text-white transition" href="#">Download app</a></li>
+<li><a class="hover:text-white transition" href="#">Customer support</a></li>
+</ul>
+</div>
+<!-- Column 4 -->
+<div class="space-y-3">
+<p class="text-white font-semibold uppercase tracking-wider text-[11px]">Legal</p>
+<ul class="space-y-2.5">
+<li><a class="hover:text-white transition" href="#">Terms of use</a></li>
+<li><a class="hover:text-white transition" href="#">Personal data request</a></li>
+<li><a class="hover:text-white transition" href="#">Security policy</a></li>
+<li><a class="hover:text-white transition" href="#">Privacy policy</a></li>
+<li><a class="hover:text-white transition" href="#">Member rights</a></li>
+</ul>
+</div>
+</div>
+<!-- Bottom Bar: Copyright & Socials -->
+<div class="pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-[13px] text-[#B8B8B0]">
+<p>Copyright © 2025 • PrudentLife, Inc. All rights reserved.</p>
+<!-- Social Icons -->
+<div class="flex items-center space-x-5 text-[#B8B8B0]">
+<a aria-label="Facebook" class="hover:text-white transition" href="#">
+<svg class="w-4 h-4" fill="currentColor" viewbox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"></path></svg>
+</a>
+<a aria-label="Twitter" class="hover:text-white transition" href="#">
+<svg class="w-4 h-4" fill="currentColor" viewbox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path></svg>
+</a>
+<a aria-label="LinkedIn" class="hover:text-white transition" href="#">
+<svg class="w-4 h-4" fill="currentColor" viewbox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"></path></svg>
+</a>
+<a aria-label="YouTube" class="hover:text-white transition" href="#">
+<svg class="w-4 h-4" fill="currentColor" viewbox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"></path></svg>
+</a>
+</div>
+</div>
+</div>
+</footer>
+<!-- END: MainFooter -->
+</body></html>

@@ -1,0 +1,8 @@
+# Runtime evidence storage + smoke-test fixtures (generated, never committed)
+.env
+.evidence/
+.fraud-memory.json
+.data/
+.smoke-fixtures/
+dist/
+node_modules/

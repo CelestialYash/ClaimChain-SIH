@@ -1,0 +1,29 @@
+{
+  "name": "blockchain",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "node": "hardhat node",
+    "deploy:local": "hardhat run scripts/deploy.ts --network localhost",
+    "deploy:amoy": "hardhat run scripts/deploy.ts --network polygonAmoy"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^4.1.0",
+    "@nomicfoundation/hardhat-mocha": "^3.1.0",
+    "@nomicfoundation/hardhat-network-helpers": "^3.0.11",
+    "@types/chai": "^5.2.3",
+    "chai": "^6.2.2",
+    "dotenv": "^18.0.0",
+    "hardhat": "^3.17.0"
+  },
+  "dependencies": {
+    "ethers": "^6.17.0"
+  }
+}

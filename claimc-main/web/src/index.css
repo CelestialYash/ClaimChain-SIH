@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------
+   ClaimChain — Halo fintech design language (light #F5F5F5)
+   Primary font: TT Norms Pro (regular 400 + semibold 600)
+   ------------------------------------------------------------------ */
+
+@font-face {
+  font-family: "TT Norms Pro";
+  src: url("/fonts/tt-norms-pro-regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "TT Norms Pro";
+  src: url("/fonts/tt-norms-pro-semibold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  /* Halo palette */
+  --color-halo-bg: #f5f5f5;
+  --color-halo-ink: #0a0a0a;
+  --color-halo-deep: #2b2644;
+  --color-halo-line: rgba(10, 10, 10, 0.08);
+  --color-halo-sub: rgba(10, 10, 10, 0.7);
+  --color-halo-soft: rgba(10, 10, 10, 0.5);
+
+  /* ClaimChain semantic status colors (kept from the forensic system) */
+  --color-status-verified: #10b981;
+  --color-status-ai: #06b6d4;
+  --color-status-review: #f59e0b;
+  --color-status-tamper: #ef4444;
+
+  --font-sans: "TT Norms Pro", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-halo-bg);
+  font-family: "TT Norms Pro", "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+* {
+  font-family: inherit;
+}
+
+/* Marquees */
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee 22s linear infinite;
+}
+.backers-track {
+  display: flex;
+  width: max-content;
+  animation: backers-marquee 30s linear infinite;
+}
+@keyframes backers-marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: rgba(10, 10, 10, 0.18); border-radius: 4px; }

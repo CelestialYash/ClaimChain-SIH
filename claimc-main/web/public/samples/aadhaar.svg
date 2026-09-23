@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="220" viewBox="0 0 320 220">
+  <rect width="320" height="220" fill="#fafafa"/>
+  <rect x="0" y="0" width="320" height="34" fill="#ff9933"/>
+  <rect x="0" y="186" width="320" height="34" fill="#138808"/>
+  <text x="160" y="23" text-anchor="middle" font-family="sans-serif" font-weight="bold" font-size="13" fill="#fff">भारत सरकार · GOVERNMENT OF INDIA</text>
+  <circle cx="52" cy="105" r="30" fill="#e8e8e8" stroke="#bbb"/>
+  <path d="M 40 118 q 12 -14 24 0" fill="none" stroke="#999" stroke-width="2"/>
+  <circle cx="52" cy="98" r="9" fill="#999"/>
+  <text x="100" y="88" font-family="sans-serif" font-size="14" fill="#333">रोशन पांडेय</text>
+  <text x="100" y="106" font-family="sans-serif" font-size="12" fill="#555">Roshan Pandey</text>
+  <text x="100" y="124" font-family="sans-serif" font-size="9" fill="#777">DoB: 03/01/1995 · MALE</text>
+  <text x="160" y="172" text-anchor="middle" font-family="monospace" font-size="15" letter-spacing="3" fill="#333">XXXX XXXX 4533</text>
+  <text x="160" y="207" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#dfffd8">आधार · AADHAAR — name card, front side</text>
+</svg>

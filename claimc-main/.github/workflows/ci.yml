@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  backend:
+    name: Contract + API (compile, tests, typecheck, e2e smoke)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            blockchain/package-lock.json
+
+      - name: Install blockchain deps
+        working-directory: blockchain
+        run: npm install --no-audit --no-fund
+
+      - name: Compile contracts (solc 0.8.20)
+        working-directory: blockchain
+        run: npx hardhat compile
+
+      - name: Contract tests (hash-chain + tamper detection)
+        working-directory: blockchain
+        run: npm test
+
+      - name: Install server deps
+        working-directory: server
+        run: npm install --no-audit --no-fund
+
+      - name: Server typecheck (strict)
+        working-directory: server
+        run: npm run typecheck
+
+      # Full end-to-end: hardhat node -> deploy -> API -> multipart intake ->
+      # 7-stage AI pipeline -> RULE ZERO guards -> pay -> tamper/restore.
+      # First run downloads CLIP + OCR model weights into the runners' cache.
+      - name: E2E smoke test (18 steps)
+        working-directory: server
+        run: bash scripts/smoke-test.sh
+
+      - name: Upload smoke logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-logs
+          path: |
+            /tmp/cc-node.log
+            /tmp/cc-deploy.log
+            /tmp/cc-api.log
+          if-no-files-found: ignore
