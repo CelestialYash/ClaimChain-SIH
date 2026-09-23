@@ -403,20 +403,36 @@ Monorepo with three independent npm workspaces (no root workspace hoisting; each
   - Strict planning-first discipline active: no major architecture changes or code edits without prior plan approval.
   - `CLAIMCHAIN_CONTEXT.md` maintained as the authoritative single source of truth across all turns.
 
+### 2026-09-23 (Late Night) — Insurer Auth, Relational Database & Security Architecture Plan
+
+- **User Requests & Inquiries:**
+  1. Working authentication system for Insurers/Inspectors (Inspector 1, Inspector 2, Supervisor).
+  2. Relational database system with multi-tenant Insurer Claimant History and status filtering (Approved, Flagged, Rejected, Paid).
+  3. Forensic authenticity proof: How to verify signatures and stamps on land registry documents (*विक्रय विलेख, खतौनी, खसरा*) against fraud.
+  4. Data breach prevention & PII protection for uploaded Aadhaar and Land Registry documents.
+  5. Save this implementation plan into a unique persistent file before AI usage limits are reached so new models can resume immediately.
+- **Architectural Deliverables Created:**
+  - Saved comprehensive plan in: **`INSURER_AUTH_DB_SECURITY_PLAN.md`** (located at workspace root and `claimc-main/`).
+  - **Q3 Security Model:** Triangulation across Bhulekh/AgriStack government land registry APIs (Deed/Khasra/SRO verification), deep learning signature stroke dynamics (SigNet), and PKI public-key certificate verification for digital QR e-Signs.
+  - **Q4 Data Breach Model:** Zero PII on-chain (only irreversible SHA-256 state hashes), mandatory client/server-side Aadhaar 8-digit masking (`XXXX XXXX 4533`), AES-256-GCM envelope encryption at rest, and short-lived signed URLs with strict RBAC.
+  - **Feature 1 (Auth):** Bcrypt hashed passwords, stateless JWT tokens, Express `requireAuth` middleware, `/login` screen with one-click inspector presets, header profile/logout badge.
+  - **Feature 2 (DB & History):** SQLite (via Better-SQLite3 / Prisma) relational schema (`users`, `claims`, `evidence`, `audit_records`), filterable dashboard tabs, and inspector history selector.
+- **Next Model Handoff Instruction:**
+  - **Do NOT execute code changes until user gives explicit confirmation.**
+  - Review `INSURER_AUTH_DB_SECURITY_PLAN.md` and execute steps 1 through 5 sequentially upon user approval.
+
 ---
 
 ## 7. Next Steps / Open Threads
 
 - [x] ~~**Wire `server/` claims API to the blockchain contract**~~ — **done**: sealing + verified audit-trail endpoint, e2e smoke test passes
-- [x] ~~Add Prisma + SQLite/Postgres when persistence is needed~~ — **Interim DONE (2026-09-18)**: write-through snapshot persistence (`server/src/persist.ts`) — claims (incl. verification logs) survive restarts; snapshot `.data/claims.json` (gitignored), atomic writes, contract-address stamp (fresh deploy → fresh store), seeds fill-the-gaps on boot, `explanation` recomputed on load, disable with `CLAIMCHAIN_PERSIST=0`, `DATA_DIR` override. Restart-survival test PASS. Prisma/Postgres still available as the multi-user upgrade path (replace persist.ts's two functions)
+- [x] ~~Add Prisma + SQLite/Postgres when persistence is needed~~ — **Interim DONE (2026-09-18)**: write-through snapshot persistence (`server/src/persist.ts`)
 - [x] **Deploy to Polygon Amoy testnet** — **DONE (2026-09-23)**: contract deployed at `0xb2aE1FC9887b1F77D1e45944654f0D7349B0Ce27` with deployer `0x85d93Ca2D66afab27755D5d4D776Ead173CcdfeB`
 - [x] **Deploy full stack to Cloud** — **DONE (2026-09-23)**: Render backend (`claimchain-api.onrender.com`) + Vercel frontend (`claimchain-mu.vercel.app`) with proxy rewrites
-- [x] ~~Tamper-detection demo endpoint~~ — **done**: `/api/demo/tamper` + `/api/demo/restore`, covered by the smoke test
-- [x] ~~Port mockups into `web/`~~ — **SUPERSEDED (2026-09-18)**: user pivoted to the Halo fintech spec, which was rebuilt into `web/` instead of porting the old mockups
-- [x] ~~**Design the 6 missing screens** referenced in navs~~ — **SUPERSEDED (2026-09-18)**: nav destinations now exist as real pages — /system, /pipeline, /integrity, /memory, /explorer (3 of them live-polling real APIs); farmer portal remains unbuilt
-- [ ] **Next Planning Phase (User Direction)**: Formulate structured implementation plan for upcoming major parts before writing code.
-- [ ] **Graceful Chain Fallback (Local & Cloud)**: Make genesis seal failure non-blocking or add explicit user alert if wallet gas is exhausted.
-- [ ] **Sunita Pawar Demo Handling**: Add explicit "Trigger Pipeline" or retry button in Console when selecting an unverified claim, rather than static polling.
+- [x] **Architecture Plan Saved** — **DONE (2026-09-23)**: `INSURER_AUTH_DB_SECURITY_PLAN.md` created for Insurer Auth, SQLite DB, and Document Security
+- [ ] **Awaiting User Confirmation**: Execute Step 1 (Database Layer) & Step 2 (Auth System) from `INSURER_AUTH_DB_SECURITY_PLAN.md`
+- [ ] **Graceful Chain Fallback (Local & Cloud)**: Make genesis seal failure non-blocking or add explicit user alert if wallet gas is exhausted
+- [ ] **Sunita Pawar Demo Handling**: Add explicit "Trigger Pipeline" or retry button in Console when selecting an unverified claim
 - [ ] **Farmer-facing light portal** (screen-02 style) — unbuilt
 - [x] **Flood-flow farmer-doc verification** — DONE (2026-09-19): bilingual registry/Aadhaar/policy OCR + DOC_CROSS + R5 satellite destruction ladder verified e2e
 - [x] ~~**Prototype the hash-chain demo**~~ — **DONE**: real hash-chained contract + `verifyTrail` + `/api/demo/tamper|restore` (local-node-only)
