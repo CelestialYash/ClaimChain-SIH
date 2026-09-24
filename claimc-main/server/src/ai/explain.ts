@@ -166,9 +166,12 @@ export function buildExplanation(run: VerificationRun, claim: Claim, lang: Expla
 
     // Satellite destruction assessment
     if (d.satellite.found && d.satellite.destructionPct != null) {
+      const srcText = d.satellite.tileId
+        ? (lang === 'hi' ? `सर्वर-प्राप्त टाइल ${d.satellite.tileId}` : `server-fetched tile ${d.satellite.tileId}`)
+        : (lang === 'hi' ? 'अपलोड की गई इमेजरी' : 'uploaded imagery');
       const satText = lang === 'hi'
-        ? `उपग्रह: ${d.satellite.destructionPct}% विनाश (स्तर: ${d.satellite.rung ?? '?'})`
-        : `Satellite: ${d.satellite.destructionPct}% destruction (rung: ${d.satellite.rung ?? '?'})`;
+        ? `उपग्रह (${srcText}): ${d.satellite.destructionPct}% विनाश (स्तर: ${d.satellite.rung ?? '?'})`
+        : `Satellite (${srcText}): ${d.satellite.destructionPct}% destruction (rung: ${d.satellite.rung ?? '?'})`;
       docFacts.push(satText);
       if (d.pctDelta != null && d.claimedPct != null) {
         docFacts.push(lang === 'hi'

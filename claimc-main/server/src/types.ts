@@ -100,7 +100,15 @@ export interface DocSummary {
     coverage?: string[];
     insuredName?: string;
   };
-  satellite: { found: boolean; destructionPct?: number; rung?: string };
+  satellite: {
+    found: boolean;
+    destructionPct?: number;
+    rung?: string;
+    /** Tile provenance when the imagery was server-fetched (R5 fix). */
+    tileId?: string;
+    provider?: string;
+    prePostNdvi?: { pre: number; post: number };
+  };
   claimedPct?: number;
   pctDelta?: number;
   /** Snippets of raw text read from documents by OCR (fileId -> raw text snippet). */

@@ -32,6 +32,7 @@ import {
   type LossType,
   type StageLog,
 } from '../lib/api';
+import { useAuth } from '../lib/auth';
 
 /**
  * ClaimChain Console — the working claims dashboard in the Halo fintech
@@ -720,7 +721,7 @@ function PipelineStepper({ claimId, onInspect }: { claimId: string; onInspect?: 
                     run.docSummary.satellite.found && {
                       ok: true,
                       title: `🛰️ Satellite · ${run.docSummary.satellite.destructionPct ?? '?'}%`,
-                      body: `rung: ${run.docSummary.satellite.rung ?? '?'}${run.docSummary.pctDelta != null ? ` · claimed ${run.docSummary.claimedPct}% (Δ ${run.docSummary.pctDelta})` : ''}`,
+                      body: `${run.docSummary.satellite.tileId ? `server-fetched ${run.docSummary.satellite.tileId} · ` : ''}rung: ${run.docSummary.satellite.rung ?? '?'}${run.docSummary.pctDelta != null ? ` · claimed ${run.docSummary.claimedPct}% (Δ ${run.docSummary.pctDelta})` : ''}`,
                     },
                   ].filter(Boolean) as Array<{ ok: boolean; warn?: boolean; title: string; body: string }>
                   ).map((c) => (
@@ -1015,6 +1016,7 @@ function TrailPanel({ claimId }: { claimId: string }) {
 // ---------------------------------------------------------------------------
 
 export default function Console() {
+  const { user, logout } = useAuth();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [showLiveOnly, setShowLiveOnly] = useState(false);
@@ -1079,6 +1081,24 @@ export default function Console() {
             >
               <Download className="h-3 w-3" /> CSV
             </a>
+            {user && (
+              <span className="hidden items-center gap-2 rounded-full border border-black/10 px-3 py-1 md:inline-flex">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-black text-[9px] font-bold text-white">
+                  {user.name.slice(0, 1).toUpperCase()}
+                </span>
+                <span className="font-medium text-black/80">
+                  {user.name} · {user.district}
+                </span>
+                <span className="text-[9px] font-semibold uppercase tracking-widest text-black/40">{user.role}</span>
+                <button
+                  type="button"
+                  onClick={logout}
+                  className="ml-1 rounded-full border border-black/15 px-2 py-0.5 text-[10px] font-medium text-black/60 transition-colors hover:border-black/40 hover:text-black"
+                >
+                  Logout
+                </button>
+              </span>
+            )}
           </div>
         </div>
       </header>

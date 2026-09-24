@@ -94,6 +94,24 @@ API_PID=$!
 wait_for "$API/api/health" "API server"
 echo "api ready (pid $API_PID)"
 
+# --- Insurer auth (INSURER_AUTH_DB_SECURITY_PLAN.md §2): the smoke test acts
+# --- as the SUPERVISOR for every guarded call (review / pay / retry).
+echo "== 4b. INSURER AUTH: login + guards + JWT =="
+CODE="$(curl -s -o "$FIXTURES/login-bad.json" -w '%{http_code}' -X POST $API/api/auth/login -H 'Content-Type: application/json' -d '{"email":"supervisor@claimchain.gov.in","password":"wrong"}')"
+expect_eq "$CODE" "401" "login wrong password → 401"
+expect_eq "$(jsonget "$(cat "$FIXTURES/login-bad.json")" error)" "INVALID_CREDENTIALS" "error = INVALID_CREDENTIALS"
+curl -s -X POST $API/api/auth/login -H 'Content-Type: application/json' -d '{"email":"supervisor@claimchain.gov.in","password":"supervisor"}' > "$FIXTURES/login.json"
+TOKEN="$(jsonget "$(cat "$FIXTURES/login.json")" token)"
+if [ -n "$TOKEN" ] && [ "$TOKEN" != "null" ]; then echo "   PASS: supervisor login issued a JWT"; else echo "   FAIL: no token in login response"; exit 1; fi
+AUTH=(-H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json')
+ME="$(curl -s $API/api/auth/me -H "Authorization: Bearer $TOKEN")"
+expect_eq "$(echo "$ME" | jsonget user.role)" "supervisor" "/auth/me resolves the token → supervisor"
+CODE="$(curl -s -o "$FIXTURES/noauth-pay.json" -w '%{http_code}' -X POST $API/api/claims/CLM-8919/pay -H 'Content-Type: application/json' -d '{"upiRef":"NO-AUTH-1"}')"
+expect_eq "$CODE" "401" "pay WITHOUT token → 401 (auth gate precedes RULE ZERO)"
+expect_eq "$(jsonget "$(cat "$FIXTURES/noauth-pay.json")" error)" "AUTH_REQUIRED" "error = AUTH_REQUIRED"
+CODE="$(curl -s -o /dev/null -w '%{http_code}' -X POST $API/api/claims/CLM-8919/transitions -H 'Content-Type: application/json' -d '{"status":"HUMAN_REVIEW","note":"no token"}')"
+expect_eq "$CODE" "401" "human review WITHOUT token → 401"
+
 echo "== 4. Health + seeded claims =="
 HEALTH="$(curl -s $API/api/health)"
 expect_eq "$(echo "$HEALTH" | jsonget chain.enabled)" "true" "chain enabled"
@@ -109,16 +127,16 @@ echo "   DUPLICATE_PHASH → $STAGE"
 expect_eq "$(echo "$V8919" | jsonget status)" "COMPLETE" "8919 verification complete"
 
 echo "== 6. RULE ZERO: paying the FLAGGED seed claim must 409 =="
-CODE="$(curl -s -o "$FIXTURES/pay1.json" -w '%{http_code}' -X POST $API/api/claims/CLM-8919/pay -H 'Content-Type: application/json' -d '{"upiRef":"TEST-REF-1"}')"
+CODE="$(curl -s -o "$FIXTURES/pay1.json" -w '%{http_code}' -X POST $API/api/claims/CLM-8919/pay "${AUTH[@]}" -d '{"upiRef":"TEST-REF-1"}')"
 expect_eq "$CODE" "409" "pay on flagged claim → 409"
 expect_eq "$(jsonget "$(cat "$FIXTURES/pay1.json")" error)" "FLAGGED_LOCKED" "error = FLAGGED_LOCKED"
 
 echo "== 7. Manual AI verdicts are REJECTED (pipeline-only) =="
-CODE="$(curl -s -o "$FIXTURES/t1.json" -w '%{http_code}' -X POST $API/api/claims/CLM-8919/transitions -H 'Content-Type: application/json' -d '{"status":"AI_APPROVED","note":"let me through"}')"
+CODE="$(curl -s -o "$FIXTURES/t1.json" -w '%{http_code}' -X POST $API/api/claims/CLM-8919/transitions "${AUTH[@]}" -d '{"status":"AI_APPROVED","note":"let me through"}')"
 expect_eq "$CODE" "403" "manual AI_APPROVED → 403"
 expect_eq "$(jsonget "$(cat "$FIXTURES/t1.json")" error)" "AI_VERDICTS_ARE_COMPUTED" "error = AI_VERDICTS_ARE_COMPUTED"
 
-CODE="$(curl -s -o "$FIXTURES/t2.json" -w '%{http_code}' -X POST $API/api/claims/CLM-8919/transitions -H 'Content-Type: application/json' -d '{"status":"PAID","note":"pay me"}')"
+CODE="$(curl -s -o "$FIXTURES/t2.json" -w '%{http_code}' -X POST $API/api/claims/CLM-8919/transitions "${AUTH[@]}" -d '{"status":"PAID","note":"pay me"}')"
 expect_eq "$CODE" "409" "transitions→PAID → 409 (USE_PAY_ENDPOINT)"
 
 echo "== 8. REAL multipart intake: photos + bill upload, auto pipeline =="
@@ -188,7 +206,8 @@ else
   echo "   FAIL: random pics got $R_VERDICT — relevance guard not working"
   exit 1
 fi
-R_PAY="$(curl -s -o "$FIXTURES/rpay.json" -w '%{http_code}' -X POST $API/api/claims/$R_ID/pay -H 'Content-Type: application/json' -d '{"upiRef":"RANDOM-PAY-1"}')"
+
+R_PAY="$(curl -s -o "$FIXTURES/rpay.json" -w '%{http_code}' -X POST $API/api/claims/$R_ID/pay "${AUTH[@]}" -d '{"upiRef":"RANDOM-PAY-1"}')"
 expect_eq "$R_PAY" "409" "random-evidence claim payout → 409 (RULE ZERO holds)"
 
 echo "== 9d. FARMER DOCS: registry PDF + Aadhaar + satellite + destruction % =="
@@ -267,25 +286,25 @@ echo "   sealed records: $N_RECORDS (genesis + AI decision)"
 
 echo "== 11. Pay only when unlocked =="
 if [ "$VERDICT" = "AI_APPROVED" ]; then
-  CODE="$(curl -s -o "$FIXTURES/pay2.json" -w '%{http_code}' -X POST $API/api/claims/$CLAIM_ID/pay -H 'Content-Type: application/json' -d '{"upiRef":"UPI-TEST-90210"}')"
+  CODE="$(curl -s -o "$FIXTURES/pay2.json" -w '%{http_code}' -X POST $API/api/claims/$CLAIM_ID/pay "${AUTH[@]}" -d '{"upiRef":"UPI-TEST-90210"}')"
   expect_eq "$CODE" "200" "pay on approved claim → 200"
   expect_eq "$(jsonget "$(cat "$FIXTURES/pay2.json")" claim.status)" "PAID" "claim now PAID"
   # terminal: second pay rejected
-  CODE="$(curl -s -o /dev/null -w '%{http_code}' -X POST $API/api/claims/$CLAIM_ID/pay -H 'Content-Type: application/json' -d '{"upiRef":"UPI-TEST-90211"}')"
+  CODE="$(curl -s -o /dev/null -w '%{http_code}' -X POST $API/api/claims/$CLAIM_ID/pay "${AUTH[@]}" -d '{"upiRef":"UPI-TEST-90211"}')"
   expect_eq "$CODE" "409" "double-pay → 409"
 else
   echo "   (pipeline flagged the fresh claim — testing human-review lane instead)"
-  CODE="$(curl -s -o "$FIXTURES/pay3.json" -w '%{http_code}' -X POST $API/api/claims/$CLAIM_ID/pay -H 'Content-Type: application/json' -d '{"upiRef":"UPI-TEST-90210"}')"
+  CODE="$(curl -s -o "$FIXTURES/pay3.json" -w '%{http_code}' -X POST $API/api/claims/$CLAIM_ID/pay "${AUTH[@]}" -d '{"upiRef":"UPI-TEST-90210"}')"
   expect_eq "$CODE" "409" "pay on flagged fresh claim → 409"
-  CODE="$(curl -s -o "$FIXTURES/ha.json" -w '%{http_code}' -X POST $API/api/claims/$CLAIM_ID/transitions -H 'Content-Type: application/json' -d '{"status":"HUMAN_APPROVED","note":"Human review: field visit confirmed genuine flood damage on-site.","reviewer":"inspector-7"}')"
+  CODE="$(curl -s -o "$FIXTURES/ha.json" -w '%{http_code}' -X POST $API/api/claims/$CLAIM_ID/transitions "${AUTH[@]}" -d '{"status":"HUMAN_APPROVED","note":"Human review: field visit confirmed genuine flood damage on-site.","reviewer":"supervisor"}')"
   expect_eq "$CODE" "200" "human approve with reason → 200"
   expect_eq "$(jsonget "$(cat "$FIXTURES/ha.json")" claim.status)" "HUMAN_APPROVED" "status = HUMAN_APPROVED"
-  CODE="$(curl -s -o "$FIXTURES/pay4.json" -w '%{http_code}' -X POST $API/api/claims/$CLAIM_ID/pay -H 'Content-Type: application/json' -d '{"upiRef":"UPI-TEST-90210"}')"
+  CODE="$(curl -s -o "$FIXTURES/pay4.json" -w '%{http_code}' -X POST $API/api/claims/$CLAIM_ID/pay "${AUTH[@]}" -d '{"upiRef":"UPI-TEST-90210"}')"
   expect_eq "$CODE" "200" "pay after human approval → 200"
 fi
 
 echo "== 12. Human review requires a real reason (>= 20 chars) =="
-CODE="$(curl -s -o "$FIXTURES/hs.json" -w '%{http_code}' -X POST $API/api/claims/CLM-8919/transitions -H 'Content-Type: application/json' -d '{"status":"HUMAN_APPROVED","note":"ok fine pay it"}')"
+CODE="$(curl -s -o "$FIXTURES/hs.json" -w '%{http_code}' -X POST $API/api/claims/CLM-8919/transitions "${AUTH[@]}" -d '{"status":"HUMAN_APPROVED","note":"ok fine pay it"}')"
 expect_eq "$CODE" "400" "short reason → 400"
 expect_eq "$(jsonget "$(cat "$FIXTURES/hs.json")" error)" "REASON_TOO_SHORT" "error = REASON_TOO_SHORT"
 
@@ -311,7 +330,7 @@ expect_eq "$(echo "$STATS" | jsonget chainEnabled)" "true" "stats chain enabled"
 echo "== 15b. TRAINED fraud memory (CLIP k-NN over decided claims) =="
 MEM="$(curl -s $API/api/fraud-memory)"
 MEM_SIZE="$(echo "$MEM" | jsonget size)"
-echo "   $(echo "$MEM" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{const j=JSON.parse(d);console.log('trained embeddings:',j.size,'(genuine:',j.genuine,', fraud:',j.fraud,') engine:',j.engine)})")"
+echo "   $(echo "$MEM" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{const j=JSON.parse(d);console.log('trained embeddings:',j.size,'(genuine:'+j.genuine+', fraud:'+j.fraud+') engine:'+j.engine)})")"
 if [ "$MEM_SIZE" -ge 4 ] 2>/dev/null; then echo "   PASS: fraud memory trained ($MEM_SIZE embeddings)"; else echo "   FAIL: fraud memory not trained ($MEM_SIZE)"; exit 1; fi
 # The fresh claim's DAMAGE_ASSESS log must show the trained-memory kNN line.
 DA="$(curl -s $API/api/claims/$CLAIM_ID/verification | jsonget verification.stages.5.details)"
@@ -332,5 +351,25 @@ curl -s -X POST $API/api/demo/restore \
   -d "{\"claimId\":\"$CLAIM_ID\",\"recordIndex\":1}" > "$FIXTURES/restore.json"
 expect_eq "$(jsonget "$(cat "$FIXTURES/restore.json")" integrity.onChainValid)" "true" "chain restored"
 echo "   verdict: $(jsonget "$(cat "$FIXTURES/restore.json")" verdict)"
+
+echo "== 17b. RELATIONAL HISTORY: SQLite mirror, status groups, assignment =="
+HIST="$(curl -s "$API/api/history?status=flagged")"
+H_COUNT="$(echo "$HIST" | jsonget count)"
+if [ "$H_COUNT" -ge 1 ] 2>/dev/null; then echo "   PASS: history?status=flagged → $H_COUNT row(s)"; else echo "   FAIL: flagged history empty"; exit 1; fi
+H_SEARCH="$(curl -s "$API/api/history?search=CLM-8920")"
+expect_eq "$(echo "$H_SEARCH" | jsonget count)" "1" "history?search=CLM-8920 → 1 row"
+# Assign the fresh claim to inspector 1, then filter by that inspector.
+CODE="$(curl -s -o "$FIXTURES/assign.json" -w '%{http_code}' -X POST $API/api/claims/CLM-8930/assign "${AUTH[@]}" -d '{"inspectorId":"usr-inspector-1"}')"
+expect_eq "$CODE" "200" "assign CLM-8930 → inspector 1 (200)"
+H_INS="$(curl -s "$API/api/history?inspector=usr-inspector-1")"
+H_INS_COUNT="$(echo "$H_INS" | jsonget count)"
+if [ "$H_INS_COUNT" -ge 1 ] 2>/dev/null; then echo "   PASS: history?inspector=usr-inspector-1 → $H_INS_COUNT row(s)"; else echo "   FAIL: inspector filter empty after assignment"; exit 1; fi
+INSPECTORS="$(curl -s $API/api/users "${AUTH[@]}")"
+N_USERS="$(echo "$INSPECTORS" | jsonget users.0.email >/dev/null 2>&1; echo $?)"
+echo "   roster reachable (rc=$N_USERS)"
+
+# Restart-survival for the SQLite layer: users persist (INSERT OR IGNORE),
+# and the mirror re-syncs from the snapshot on the next boot.
+echo "   SQLite mirror: $(ls -la "$SERVER/.data/claimchain.db" 2>/dev/null | awk '{print $5" bytes"}' || echo 'missing')"
 
 echo "== 18. Smoke test complete — ALL PASS ✅ =="
