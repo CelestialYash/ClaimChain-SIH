@@ -5,6 +5,7 @@ import { embedImage, embedTexts, cosine } from './clip.js';
 import { scoreEmbedding } from './fraud-memory.js';
 import { explainRun } from './explain.js';
 import { resolveDistrict } from './geo.js';
+import { buildTileSpec } from './sentinel.js';
 import { pdfToText } from './pdfimg.js';
 import {
   classifyDoc,
@@ -652,7 +653,10 @@ export async function runVerification(claim: Claim, allClaims: Map<string, Claim
       : null;
 
   // Satellite/geotagged plot imagery → destruction % (CLIP zero-shot ladder).
+  // Server-fetched tiles (R5 provenance fix) are recognized by their
+  // `Txxx__PRE/POST` filenames and enrich the summary with NDVI provenance.
   let satellite: { fileId: string; pct: number; rung: string } | null = null;
+  let satMeta: { tileId: string; provider: string; preNdvi: number; postNdvi: number } | null = null;
   const satEvidence = own.find((e) => e.kind === 'satellite');
   if (satEvidence) {
     try {
@@ -660,6 +664,22 @@ export async function runVerification(claim: Claim, allClaims: Map<string, Claim
       const imgs = satEvidence.mimeType === 'application/pdf' ? await import('./pdfimg.js').then((m) => m.pdfPages(buf, 1)) : [buf];
       const res = await scoreDestruction(embedImage, embedTexts, imgs[0]);
       satellite = { fileId: satEvidence.fileId, pct: res.destructionPct, rung: res.rung };
+      const m = satEvidence.filename.match(/^(T\d+)__(PRE|POST)/);
+      if (m) {
+        // Server-fetched pair: recover the NDVI provenance from the tile spec.
+        const spec = buildTileSpec(claim);
+        if (spec && spec.tileId === m[1]) {
+          const tiles = await import('./sentinel.js').then((s) => s.fetchPlotTiles(claim));
+          if (tiles) {
+            satMeta = {
+              tileId: tiles.spec.tileId,
+              provider: tiles.provider,
+              preNdvi: tiles.pre.ndvi,
+              postNdvi: tiles.post.ndvi,
+            };
+          }
+        }
+      }
     } catch {
       satellite = null;
     }
@@ -805,6 +825,9 @@ export async function runVerification(claim: Claim, allClaims: Map<string, Claim
       found: satellite != null,
       destructionPct: satellite?.pct,
       rung: satellite?.rung,
+      tileId: satMeta?.tileId,
+      provider: satMeta?.provider,
+      prePostNdvi: satMeta ? { pre: satMeta.preNdvi, post: satMeta.postNdvi } : undefined,
     },
     claimedPct: claim.destructionPctClaimed,
     pctDelta: satellite && claim.destructionPctClaimed != null ? Math.abs(claim.destructionPctClaimed - satellite.pct) : undefined,

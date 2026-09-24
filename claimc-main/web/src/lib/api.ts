@@ -112,7 +112,15 @@ export interface DocSummary {
     coverage?: string[];
     insuredName?: string;
   };
-  satellite: { found: boolean; destructionPct?: number; rung?: string };
+  satellite: {
+    found: boolean;
+    destructionPct?: number;
+    rung?: string;
+    /** Tile provenance when the imagery was server-fetched (R5 fix). */
+    tileId?: string;
+    provider?: string;
+    prePostNdvi?: { pre: number; post: number };
+  };
   claimedPct?: number;
   pctDelta?: number;
   /** Snippets of raw text read from documents by OCR (fileId → raw text snippet). */
@@ -220,8 +228,16 @@ export interface SimilarCasesResponse {
 
 const BASE = '/api';
 
+/** Active JWT (set by the AuthProvider); attached to every request. */
+let authToken: string | null = null;
+export function setAuthToken(token: string | null): void {
+  authToken = token;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(BASE + path, init);
+  const headers = new Headers(init?.headers);
+  if (authToken) headers.set('Authorization', `Bearer ${authToken}`);
+  const res = await fetch(BASE + path, { ...init, headers });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
     const err = body as { error?: string; message?: string };
@@ -332,7 +348,57 @@ export const api = {
 
   evidenceUrl: (fileId: string) => `${BASE}/evidence/${fileId}`,
   exportCsvUrl: () => `${BASE}/export.csv`,
+
+  // --- Auth (INSURER_AUTH_DB_SECURITY_PLAN.md §2) ---
+  login: (email: string, password: string) =>
+    request<{ token: string; user: AuthUser }>('/auth/login', jsonInit('POST', { email, password })),
+  me: () => request<{ user: AuthUser }>('/auth/me'),
+  logout: () => request<{ ok: boolean }>('/auth/logout', { method: 'POST' }),
+
+  // --- Relational history (plan §3) ---
+  history: (filters: { status?: string; inspector?: string; search?: string; lossType?: string } = {}) => {
+    const q = new URLSearchParams();
+    if (filters.status) q.set('status', filters.status);
+    if (filters.inspector) q.set('inspector', filters.inspector);
+    if (filters.search) q.set('search', filters.search);
+    if (filters.lossType) q.set('lossType', filters.lossType);
+    const qs = q.toString();
+    return request<HistoryResponse>(`/history${qs ? `?${qs}` : ''}`);
+  },
+  assign: (claimId: string, inspectorId: string) =>
+    request<{ ok: boolean; claimId: string; assignedTo: string }>(`/claims/${claimId}/assign`, {
+      ...jsonInit('POST', { inspectorId }),
+    }),
+  inspectors: () => request<{ users: AuthUser[] }>('/users'),
 };
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  role: 'inspector' | 'supervisor';
+  district: string;
+}
+
+export interface HistoryRow {
+  id: string;
+  claimantName: string;
+  lossType: LossType;
+  amountRequested: number;
+  status: ClaimStatus;
+  policyNumber: string | null;
+  assignedTo: string | null;
+  inspectorName: string | null;
+  inspectorDistrict: string | null;
+  latestStateHash: string | null;
+  submittedAt: string;
+  decidedAt: string | null;
+}
+
+export interface HistoryResponse {
+  count: number;
+  claims: HistoryRow[];
+}
 
 export const STATUS_META: Record<ClaimStatus, { label: string; tone: 'ok' | 'ai' | 'warn' | 'bad' | 'muted' }> = {
   SUBMITTED: { label: 'Submitted', tone: 'ai' },

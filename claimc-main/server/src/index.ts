@@ -20,6 +20,7 @@ import { buildClaimMerkleBundle, verifyMerkleProof } from './chain/merkle.js';
 import { fetchRecentEvents, searchChain } from './chain/explore.js';
 import { buildDossier } from './chain/dossier.js';
 import { runVerification, verificationHash, SCORE } from './ai/pipeline.js';
+import { attachSatelliteEvidence, fetchPlotTiles } from './ai/sentinel.js';
 import { buildExplanation } from './ai/explain.js';
 import { trainFromExistingClaims } from './ai/train.js';
 import { relabelClaim, memoryStats, trainClaim } from './ai/fraud-memory.js';
@@ -28,6 +29,8 @@ import { GuardError, assertTransition, assertPayoutEligible } from './guard.js';
 import { seedClaims } from './seed.js';
 import { claims, readEvidence } from './store.js';
 import { loadPersistedClaims, schedulePersist } from './persist.js';
+import { assignments, dbEnabled, initDbMirror, listHistory, mirrorClaim, userByEmail, users } from './db/index.js';
+import { issueToken, requireAuth, requireRole, seedAuthUsers, verifyPassword, verifyToken } from './auth/index.js';
 import type { Claim, SimilarCase, VerificationRun } from './types.js';
 
 const app = express();
@@ -119,7 +122,7 @@ app.get('/api/fraud-memory', (_req, res) => {
 // in the CLIP embedding space, deduped to the best match per claim.
 // ---------------------------------------------------------------------------
 app.get('/api/claims/:id/similar-cases', (req, res) => {
-  const claim = claims.get(req.params.id);
+  const claim = claims.get(req.params.id as string);
   if (!claim) return res.status(404).json({ error: 'Claim not found' });
   const dedup = new Map<string, SimilarCase>();
   for (const sc of claim.verification?.similarCases ?? []) {
@@ -294,6 +297,37 @@ app.post('/api/claims', intakeLimiter, (req, res) => {
     }
 
     const now = new Date().toISOString();
+
+    // SERVER-SOURCED SATELLITE (R5 provenance fix): the plot is identified by
+    // the claim's own geotagged photos; the server fetches PRE/POST tiles and
+    // attaches them BEFORE hashing so their hashes seal into the genesis
+    // record. Farmer-supplied satellite uploads still win (manual adjuster
+    // tiles take precedence); auto-fetch runs only when none were uploaded.
+    let satTilesAttached = 0;
+    if (!satellite?.length) {
+      try {
+        const probe: Claim = {
+          id: 'probe',
+          claimantName: '',
+          lossType: parsed.data.lossType,
+          amountRequested: 0,
+          status: 'SUBMITTED',
+          submittedAt: now,
+          imageHashes: [],
+          evidence: processed.filter((p) => p.evidence.kind === 'photo').map((p) => p.evidence),
+        };
+        const tiles = await fetchPlotTiles(probe);
+        if (tiles) {
+          const attached = await attachSatelliteEvidence(probe, tiles);
+          processed.push(...attached);
+          satTilesAttached = attached.length;
+          console.log(`[satellite] ${tiles.spec.tileId} (${tiles.spec.district}) PRE/POST attached · provider: ${tiles.provider} · measured NDVI drop → ${tiles.destructionPct}% (${tiles.rung})`);
+        }
+      } catch (e) {
+        console.warn('[satellite] auto-fetch failed (claim continues without tiles):', (e as Error).message);
+      }
+    }
+
     const claim: Claim = {
       id: `CLM-${randomUUID().slice(0, 8).toUpperCase()}`,
       ...parsed.data,
@@ -311,7 +345,7 @@ app.post('/api/claims', intakeLimiter, (req, res) => {
           claimIdToBytes32(claim.id),
           stateHash,
           CLAIM_STATUS.SUBMITTED,
-          `Claim submitted · ${processed.length} evidence file(s) · sha256+pHash committed`
+          `Claim submitted · ${processed.length} evidence file(s)${satTilesAttached > 0 ? ` · +${satTilesAttached} server-fetched satellite tile(s)` : ''} · sha256+pHash committed`
         );
         await tx.wait();
         claim.latestStateHash = stateHash;
@@ -323,6 +357,7 @@ app.post('/api/claims', intakeLimiter, (req, res) => {
 
     claims.set(claim.id, claim);
     schedulePersist(claim.id); // write-through: claim row is durable before the pipeline even starts
+    mirrorClaim(claim); // relational mirror (SQLite)
 
     // §2: the pipeline runs AUTOMATICALLY — no button.
     void runVerificationJob(claim.id);
@@ -347,6 +382,13 @@ async function runVerificationJob(claimId: string): Promise<void> {
     claim.verification = run;
     claim.status = run.verdict;
     schedulePersist(claim.id); // verdict + stage logs are durable
+    mirrorClaim(claim, {
+      stateHash: run.verificationId,
+      status: run.verdict,
+      recordedBy: 'pipeline',
+      note: `AI ${run.verdict} · score ${run.score}`,
+      timestamp: run.finishedAt,
+    });
 
     // TRAIN: enroll the decided claim's photo embeddings into the fraud memory
     // (few-shot learning — every verdict makes the next one smarter).
@@ -385,8 +427,87 @@ app.get('/api/claims', (_req, res) => {
   res.json(Array.from(claims.values()));
 });
 
+// ---------------------------------------------------------------------------
+// Insurer relational history (INSURER_AUTH_DB_SECURITY_PLAN.md §3):
+// filterable multi-tenant claim listing backed by the SQLite mirror.
+// ---------------------------------------------------------------------------
+const qs = (v: unknown): string | null => (typeof v === 'string' && v.length > 0 ? v : null);
+
+app.get('/api/history', (req, res) => {
+  if (!dbEnabled) return res.status(503).json({ error: 'DB_DISABLED', message: 'Set CLAIMCHAIN_DB=1' });
+  const rows = listHistory({
+    status: qs(req.query.status),
+    inspector: qs(req.query.inspector),
+    search: qs(req.query.search),
+    lossType: qs(req.query.lossType),
+  });
+  res.json({ count: rows.length, claims: rows });
+});
+
+// Assignment: claim → inspector (supervisor assigns; inspectors see their lane)
+const AssignInput = z.object({ inspectorId: z.string().min(1) });
+app.post('/api/claims/:id/assign', requireAuth, async (req, res) => {
+  const claim = claims.get(req.params.id as string);
+  if (!claim) return res.status(404).json({ error: 'Claim not found' });
+  const parsed = AssignInput.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid payload', details: parsed.error.issues });
+
+  try {
+    assignments.set.run({
+      claimId: claim.id,
+      assignedTo: parsed.data.inspectorId,
+      assignedBy: req.auth!.id,
+      assignedAt: new Date().toISOString(),
+    });
+    assignments.syncClaim.run({ claimId: claim.id, assignedTo: parsed.data.inspectorId });
+    return res.json({ ok: true, claimId: claim.id, assignedTo: parsed.data.inspectorId });
+  } catch (e) {
+    return res.status(400).json({ error: 'ASSIGN_FAILED', message: (e as Error).message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Insurer auth (INSURER_AUTH_DB_SECURITY_PLAN.md §2) — /api/auth/*
+// ---------------------------------------------------------------------------
+const LoginInput = z.object({ email: z.string().email(), password: z.string().min(1) });
+
+app.post('/api/auth/login', (req, res) => {
+  const parsed = LoginInput.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid credentials payload' });
+
+  const row = userByEmail(parsed.data.email);
+  if (!row) {
+    // Constant-ish response: unknown user vs wrong password both 401 with the same shape.
+    return res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Email or password is incorrect.' });
+  }
+  verifyPassword(row.passwordHash, parsed.data.password)
+    .then((ok) => {
+      if (!ok) return res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Email or password is incorrect.' });
+      res.json({
+        token: issueToken(row),
+        user: { id: row.id, email: row.email, name: row.name, role: row.role, district: row.district },
+      });
+    })
+    .catch(() => res.status(500).json({ error: 'LOGIN_FAILED' }));
+});
+
+app.get('/api/auth/me', requireAuth, (req, res) => {
+  res.json({ user: req.auth });
+});
+
+/** Roster for the assignment picker (any signed-in staff member). */
+app.get('/api/users', requireAuth, (_req, res) => {
+  const rows = users.all.all().map(({ passwordHash: _ph, ...safe }) => safe);
+  res.json({ users: rows });
+});
+
+app.post('/api/auth/logout', (_req, res) => {
+  // Stateless JWTs — logout is client-side token discard.
+  res.json({ ok: true });
+});
+
 app.get('/api/claims/:id', (req, res) => {
-  const claim = claims.get(req.params.id);
+  const claim = claims.get(req.params.id as string);
   if (!claim) return res.status(404).json({ error: 'Claim not found' });
   res.json(claim);
 });
@@ -395,7 +516,7 @@ app.get('/api/claims/:id', (req, res) => {
 // Verification logs (§3): stage-by-stage view + staff retry
 // ---------------------------------------------------------------------------
 app.get('/api/claims/:id/verification', (req, res) => {
-  const claim = claims.get(req.params.id);
+  const claim = claims.get(req.params.id as string);
   if (!claim) return res.status(404).json({ error: 'Claim not found' });
   if (!claim.verification) {
     return res.json({ claimId: claim.id, status: 'RUNNING', verification: null });
@@ -410,8 +531,8 @@ app.get('/api/claims/:id/verification', (req, res) => {
   res.json({ claimId: claim.id, status: 'COMPLETE', verification });
 });
 
-app.post('/api/claims/:id/verification/retry', async (req, res) => {
-  const claim = claims.get(req.params.id);
+app.post('/api/claims/:id/verification/retry', requireAuth, async (req, res) => {
+  const claim = claims.get(req.params.id as string);
   if (!claim) return res.status(404).json({ error: 'Claim not found' });
   if (['PAID', 'HUMAN_REJECTED'].includes(claim.status)) {
     return res.status(409).json({ error: 'TERMINAL_STATE', message: 'Terminal claims cannot be re-verified' });
@@ -424,6 +545,13 @@ app.post('/api/claims/:id/verification/retry', async (req, res) => {
     const run = await runVerification(claim, claims);
     claim.verification = run;
     schedulePersist(claim.id);
+    mirrorClaim(claim, {
+      stateHash: run.verificationId,
+      status: run.verdict,
+      recordedBy: 'pipeline',
+      note: `RETRY · AI ${run.verdict} · score ${run.score}`,
+      timestamp: run.finishedAt,
+    });
 
     // RETRY appends to history — the prior verdict record is never mutated (§5.2).
     const sealedAt = new Date().toISOString();
@@ -455,7 +583,7 @@ app.post('/api/claims/:id/evidence', (req, res) => {
     if (uploadError) return res.status(400).json({ error: uploadError });
     if (err) return res.status(400).json({ error: 'Upload failed', message: (err as Error).message });
 
-    const claim = claims.get(req.params.id);
+    const claim = claims.get(req.params.id as string);
     if (!claim) return res.status(404).json({ error: 'Claim not found' });
     if (['PAID', 'HUMAN_REJECTED'].includes(claim.status)) {
       return res.status(409).json({ error: 'TERMINAL_STATE', message: 'Terminal claims cannot receive addenda' });
@@ -493,6 +621,7 @@ app.post('/api/claims/:id/evidence', (req, res) => {
       await tx.wait();
       claim.latestStateHash = stateHash;
       schedulePersist(claim.id);
+      mirrorClaim(claim, { stateHash, status: 'SUBMITTED', recordedBy: 'addendum', note: `+${processed.length} evidence file(s)`, timestamp: sealedAt });
 
       // Re-verify with the extended evidence set.
       void runVerificationJob(claim.id);
@@ -506,7 +635,7 @@ app.post('/api/claims/:id/evidence', (req, res) => {
 });
 
 app.get('/api/claims/:id/evidence', (req, res) => {
-  const claim = claims.get(req.params.id);
+  const claim = claims.get(req.params.id as string);
   if (!claim) return res.status(404).json({ error: 'Claim not found' });
   res.json({ claimId: claim.id, evidence: claim.evidence });
 });
@@ -553,9 +682,9 @@ const HumanTransition = z.object({
   reviewer: z.string().min(1).max(80).default('ops-agent'),
 });
 
-app.post('/api/claims/:id/transitions', async (req, res) => {
+app.post('/api/claims/:id/transitions', requireAuth, async (req, res) => {
   try {
-    const claim = claims.get(req.params.id);
+    const claim = claims.get(req.params.id as string);
     if (!claim) return res.status(404).json({ error: 'Claim not found' });
 
     const parsed = HumanTransition.safeParse(req.body);
@@ -585,6 +714,7 @@ app.post('/api/claims/:id/transitions', async (req, res) => {
     claim.status = parsed.data.status;
     claim.latestStateHash = stateHash;
     schedulePersist(claim.id);
+    mirrorClaim(claim, { stateHash, status: parsed.data.status, recordedBy: req.auth?.email ?? parsed.data.reviewer, note: parsed.data.note, timestamp: sealedAt });
 
     // HUMAN FEEDBACK LOOP: the reviewer's verdict is ground truth — re-label
     // this claim's embeddings in the fraud memory (the model learns from it).
@@ -615,9 +745,9 @@ const PayInput = z.object({
   amount: z.coerce.number().int().positive().optional(),
 });
 
-app.post('/api/claims/:id/pay', async (req, res) => {
+app.post('/api/claims/:id/pay', requireAuth, async (req, res) => {
   try {
-    const claim = claims.get(req.params.id);
+    const claim = claims.get(req.params.id as string);
     if (!claim) return res.status(404).json({ error: 'Claim not found' });
 
     const parsed = PayInput.safeParse(req.body);
@@ -648,6 +778,7 @@ app.post('/api/claims/:id/pay', async (req, res) => {
     claim.status = 'PAID';
     claim.latestStateHash = stateHash;
     schedulePersist(claim.id);
+    mirrorClaim(claim, { stateHash, status: 'PAID', recordedBy: req.auth?.email ?? 'disbursement', note: note.slice(0, 280), timestamp: sealedAt });
     return res.json({ claim, sealed: true, paidInr: amount, txHash: tx.hash });
   } catch (err) {
     if (res.headersSent) return;
@@ -943,6 +1074,12 @@ async function main() {
   // Restore the previous session's claims BEFORE seeding — seeds only fill
   // the gaps (claims missing from the snapshot), so restarts are seamless.
   loadPersistedClaims(chain.enabled ? chain.address : null);
+
+  // Relational layer: seed the inspector accounts + mirror claims into SQLite.
+  if (dbEnabled) {
+    seedAuthUsers();
+  }
+  initDbMirror();
 
   app.listen(PORT, () => {
     console.log(`ClaimChain API listening on http://localhost:${PORT} (chain ${chain.enabled ? 'enabled' : 'disabled'})`);
